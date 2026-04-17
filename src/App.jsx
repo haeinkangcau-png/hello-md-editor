@@ -130,7 +130,7 @@ export default function App() {
       if (overridePath && overridePath !== file?.path) {
         const name = overridePath.replace(/\\/g, '/').split('/').pop()
         setCurrentFile({ path: overridePath, name })
-        document.title = `${name} — MD Viewer`
+        document.title = `${name} — Hello MD Editor`
       }
     } catch (err) {
       setSaveStatus('error')
@@ -163,7 +163,7 @@ export default function App() {
       setCurrentFile(file)
       setFileContent(content)
       setSaveStatus('saved')
-      document.title = `${file.name} — MD Viewer`
+      document.title = `${file.name} — Hello MD Editor`
       addToRecent({ path: file.path, name: file.name })
     } catch (err) {
       alert(`파일을 열 수 없습니다: ${err.message}`)
@@ -259,13 +259,21 @@ export default function App() {
       {/* ── Header ── */}
       <header className="app-header">
         <div className="app-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14,2 14,8 20,8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
+          <svg width="22" height="22" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="5" width="38" height="50" rx="7" fill="#FFF8E1"/>
+            <rect x="10" y="5" width="38" height="50" rx="7" fill="none" stroke="#FFAB00" strokeWidth="2.5"/>
+            <path d="M36 5 L48 17 L36 17 Z" fill="#FFAB00" opacity="0.3"/>
+            <path d="M36 5 L36 17 L48 17" fill="none" stroke="#FFAB00" strokeWidth="2.5" strokeLinejoin="round"/>
+            <circle cx="19" cy="31" r="5" fill="#FFCCBC" opacity="0.7"/>
+            <circle cx="39" cy="31" r="5" fill="#FFCCBC" opacity="0.7"/>
+            <circle cx="22" cy="27" r="3.5" fill="#FFAB00"/>
+            <circle cx="37" cy="27" r="3.5" fill="#FFAB00"/>
+            <circle cx="23" cy="26" r="1.3" fill="white"/>
+            <circle cx="38" cy="26" r="1.3" fill="white"/>
+            <path d="M19 36 Q29.5 45 40 36" stroke="#FFAB00" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+            <line x1="17" y1="48" x2="41" y2="48" stroke="#FFE082" strokeWidth="2" strokeLinecap="round"/>
           </svg>
-          MD Viewer
+          Hello MD Editor
         </div>
 
         <div className="header-actions">
@@ -374,14 +382,22 @@ export default function App() {
             ) : (
               <div className="welcome">
                 <div className="welcome-icon">
-                  <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14,2 14,8 20,8"/>
-                    <line x1="16" y1="13" x2="8" y2="13"/>
-                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  <svg width="72" height="72" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="10" y="5" width="38" height="50" rx="7" fill="#FFF8E1"/>
+                    <rect x="10" y="5" width="38" height="50" rx="7" fill="none" stroke="#FFAB00" strokeWidth="2.5"/>
+                    <path d="M36 5 L48 17 L36 17 Z" fill="#FFAB00" opacity="0.3"/>
+                    <path d="M36 5 L36 17 L48 17" fill="none" stroke="#FFAB00" strokeWidth="2.5" strokeLinejoin="round"/>
+                    <circle cx="19" cy="31" r="5" fill="#FFCCBC" opacity="0.7"/>
+                    <circle cx="39" cy="31" r="5" fill="#FFCCBC" opacity="0.7"/>
+                    <circle cx="22" cy="27" r="3.5" fill="#FFAB00"/>
+                    <circle cx="37" cy="27" r="3.5" fill="#FFAB00"/>
+                    <circle cx="23" cy="26" r="1.3" fill="white"/>
+                    <circle cx="38" cy="26" r="1.3" fill="white"/>
+                    <path d="M19 36 Q29.5 45 40 36" stroke="#FFAB00" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+                    <line x1="17" y1="48" x2="41" y2="48" stroke="#FFE082" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
                 </div>
-                <h2>MD Viewer</h2>
+                <h2>Hello MD Editor</h2>
                 <p>왼쪽에서 폴더를 열거나<br/>.md 파일을 여기로 드래그하세요.</p>
                 {isWeb && (
                   <button
@@ -394,7 +410,7 @@ export default function App() {
                         setCurrentFile(file)
                         setFileContent(result.content)
                         setSaveStatus('saved')
-                        document.title = `${result.name} — MD Viewer`
+                        document.title = `${result.name} — Hello MD Editor`
                         addToRecent(file)
                       }
                     }}

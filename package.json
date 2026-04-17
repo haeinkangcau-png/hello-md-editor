@@ -15,7 +15,7 @@
   },
   "build": {
     "appId": "com.neurophet.mdviewer",
-    "productName": "MD Viewer",
+    "productName": "Hello MD Editor",
     "directories": {
       "output": "release"
     },
