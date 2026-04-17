@@ -12,6 +12,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { Markdown } from 'tiptap-markdown'
 import Toolbar from './Toolbar'
 import SelectionInfo from './SelectionInfo'
+import { normalizeHtmlTables } from '../utils/mdRenderer'
 
 function countWords(text) {
   return text.trim() ? text.trim().split(/\s+/).length : 0
@@ -32,6 +33,8 @@ const Editor = forwardRef(function Editor(
   ref
 ) {
   const isSettingContent = useRef(false)
+  const [editMode, setEditMode] = useState('wysiwyg') // 'wysiwyg' | 'raw'
+  const [rawContent, setRawContent] = useState('')
 
   const editor = useEditor({
     extensions: [
@@ -55,15 +58,11 @@ const Editor = forwardRef(function Editor(
       onContentChange(markdown, countWords(editor.getText()))
       onHeadingsChange?.(extractHeadings(editor))
     },
-    // Re-render SelectionInfo on every cursor move
     onSelectionUpdate: () => setTick(t => t + 1),
   })
 
-  // Tick counter to force re-render when selection changes
-  // (editor object reference is stable, so we need this)
   const [, setTick] = useState(0)
 
-  // Expose scrollToPos via ref
   useImperativeHandle(ref, () => ({
     scrollToPos: (pos) => {
       if (!editor) return
@@ -73,7 +72,7 @@ const Editor = forwardRef(function Editor(
     },
   }), [editor])
 
-  // Load initial content on mount (key resets per file)
+  // Load initial content on mount
   useEffect(() => {
     if (!editor) return
     isSettingContent.current = true
@@ -85,6 +84,59 @@ const Editor = forwardRef(function Editor(
     return () => clearTimeout(t)
   }, [editor])
 
+  // ── Mode switching ─────────────────────────────────────────
+  const switchToRaw = useCallback(() => {
+    if (!editor) return
+    const md = editor.storage.markdown.getMarkdown()
+    setRawContent(md)
+    setEditMode('raw')
+  }, [editor])
+
+  const switchToWysiwyg = useCallback(() => {
+    if (!editor) return
+    isSettingContent.current = true
+    editor.commands.setContent(rawContent)
+    setTimeout(() => {
+      isSettingContent.current = false
+      onHeadingsChange?.(extractHeadings(editor))
+      onContentChange(rawContent, countWords(rawContent))
+    }, 60)
+    setEditMode('wysiwyg')
+  }, [editor, rawContent, onHeadingsChange, onContentChange])
+
+  const handleNormalize = useCallback(() => {
+    const md = editMode === 'wysiwyg'
+      ? editor.storage.markdown.getMarkdown()
+      : rawContent
+
+    const count = (md.match(/<table[\s\S]*?<\/table>/gi) || []).length
+    if (count === 0) {
+      alert('변환할 HTML 테이블이 없습니다.')
+      return
+    }
+
+    const normalized = normalizeHtmlTables(md)
+
+    if (editMode === 'wysiwyg') {
+      isSettingContent.current = true
+      editor.commands.setContent(normalized)
+      setTimeout(() => {
+        isSettingContent.current = false
+        onContentChange(normalized, countWords(normalized))
+        onHeadingsChange?.(extractHeadings(editor))
+      }, 60)
+    } else {
+      setRawContent(normalized)
+      onContentChange(normalized, countWords(normalized))
+    }
+  }, [editMode, editor, rawContent, onContentChange, onHeadingsChange])
+
+  const handleRawChange = useCallback((e) => {
+    const val = e.target.value
+    setRawContent(val)
+    onContentChange(val, countWords(val))
+  }, [onContentChange])
+
   const handleKeyDown = useCallback((e) => {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 's') {
       e.preventDefault()
@@ -95,12 +147,71 @@ const Editor = forwardRef(function Editor(
   if (!editor) return null
 
   return (
-    <div className="editor-wrapper" onKeyDown={handleKeyDown}>
-      <Toolbar editor={editor} />
-      <SelectionInfo editor={editor} />
-      <div className="editor-scroll">
-        <EditorContent editor={editor} className="editor-content" />
+    <div className="editor-wrapper" onKeyDown={editMode === 'wysiwyg' ? handleKeyDown : undefined}>
+      {/* ── Mode toggle bar ── */}
+      <div className="mode-bar">
+        <div className="mode-toggle">
+          <button
+            className={`mode-btn ${editMode === 'wysiwyg' ? 'active' : ''}`}
+            onClick={() => editMode === 'raw' && switchToWysiwyg()}
+            title="WYSIWYG 편집 모드"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            편집
+          </button>
+          <button
+            className={`mode-btn ${editMode === 'raw' ? 'active' : ''}`}
+            onClick={() => editMode === 'wysiwyg' && switchToRaw()}
+            title="Raw 마크다운 편집 모드"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            Raw
+          </button>
+        </div>
+
+        <button
+          className="normalize-btn"
+          onClick={handleNormalize}
+          title="파일 내 HTML 테이블을 Markdown 표로 일괄 변환"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="17 1 21 5 17 9"/>
+            <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+            <polyline points="7 23 3 19 7 15"/>
+            <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+          </svg>
+          HTML → MD
+        </button>
       </div>
+
+      {/* ── WYSIWYG mode ── */}
+      {editMode === 'wysiwyg' && <Toolbar editor={editor} />}
+      {editMode === 'wysiwyg' && <SelectionInfo editor={editor} />}
+      {editMode === 'wysiwyg' && (
+        <div className="editor-scroll">
+          <EditorContent editor={editor} className="editor-content" />
+        </div>
+      )}
+
+      {/* ── Raw mode ── */}
+      {editMode === 'raw' && (
+        <div className="editor-scroll raw-scroll">
+          <textarea
+            className="raw-editor"
+            value={rawContent}
+            onChange={handleRawChange}
+            onKeyDown={handleKeyDown}
+            spellCheck={false}
+            autoFocus
+          />
+        </div>
+      )}
     </div>
   )
 })
