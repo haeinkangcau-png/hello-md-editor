@@ -260,15 +260,14 @@ export default function App() {
       <header className="app-header">
         <div className="app-title">
           <svg width="22" height="22" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-            <rect x="64" y="48" width="352" height="420" rx="48" fill="#F0FAF0"/>
-            <rect x="64" y="48" width="352" height="420" rx="48" fill="none" stroke="#82C982" strokeWidth="20"/>
-            <path d="M320 48 L416 144 L320 144 Z" fill="#F0FAF0"/>
-            <path d="M320 48 L320 144 L416 144" fill="none" stroke="#82C982" strokeWidth="20" strokeLinejoin="round"/>
-            <circle cx="196" cy="220" r="22" fill="#2E4A2E"/>
-            <circle cx="316" cy="220" r="22" fill="#2E4A2E"/>
-            <path d="M180 280 Q256 348 332 280" stroke="#2E4A2E" strokeWidth="22" strokeLinecap="round" fill="none"/>
-            <path d="M168 360 Q148 360 148 380 L148 400 Q148 420 128 420 Q148 420 148 440 L148 460 Q148 480 168 480" fill="none" stroke="#82C982" strokeWidth="18" strokeLinecap="round"/>
-            <path d="M344 360 Q364 360 364 380 L364 400 Q364 420 384 420 Q364 420 364 440 L364 460 Q364 480 344 480" fill="none" stroke="#82C982" strokeWidth="18" strokeLinecap="round"/>
+            <rect x="64" y="32" width="352" height="440" rx="48" fill="#F0FAF0"/>
+            <rect x="64" y="32" width="352" height="440" rx="48" fill="none" stroke="#82C982" strokeWidth="20"/>
+            <path d="M356 32 L416 92 L356 92 Z" fill="#F0FAF0"/>
+            <path d="M356 32 L356 92 L416 92" fill="none" stroke="#82C982" strokeWidth="20" strokeLinejoin="round"/>
+            <circle cx="196" cy="200" r="22" fill="#2E4A2E"/>
+            <circle cx="316" cy="200" r="22" fill="#2E4A2E"/>
+            <path d="M180 248 Q256 316 332 248" stroke="#2E4A2E" strokeWidth="22" strokeLinecap="round" fill="none"/>
+            <text x="240" y="430" fontSize="108" fontWeight="800" fontFamily="'Helvetica Neue',Arial,sans-serif" textAnchor="middle" fill="#2E4A2E">md</text>
           </svg>
           Hello MD Editor
         </div>
@@ -380,15 +379,14 @@ export default function App() {
               <div className="welcome">
                 <div className="welcome-icon">
                   <svg width="80" height="80" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="64" y="48" width="352" height="420" rx="48" fill="#F0FAF0"/>
-                    <rect x="64" y="48" width="352" height="420" rx="48" fill="none" stroke="#82C982" strokeWidth="20"/>
-                    <path d="M320 48 L416 144 L320 144 Z" fill="#F0FAF0"/>
-                    <path d="M320 48 L320 144 L416 144" fill="none" stroke="#82C982" strokeWidth="20" strokeLinejoin="round"/>
-                    <circle cx="196" cy="220" r="22" fill="#2E4A2E"/>
-                    <circle cx="316" cy="220" r="22" fill="#2E4A2E"/>
-                    <path d="M180 280 Q256 348 332 280" stroke="#2E4A2E" strokeWidth="22" strokeLinecap="round" fill="none"/>
-                    <path d="M168 360 Q148 360 148 380 L148 400 Q148 420 128 420 Q148 420 148 440 L148 460 Q148 480 168 480" fill="none" stroke="#82C982" strokeWidth="18" strokeLinecap="round"/>
-                    <path d="M344 360 Q364 360 364 380 L364 400 Q364 420 384 420 Q364 420 364 440 L364 460 Q364 480 344 480" fill="none" stroke="#82C982" strokeWidth="18" strokeLinecap="round"/>
+                    <rect x="64" y="32" width="352" height="440" rx="48" fill="#F0FAF0"/>
+                    <rect x="64" y="32" width="352" height="440" rx="48" fill="none" stroke="#82C982" strokeWidth="20"/>
+                    <path d="M356 32 L416 92 L356 92 Z" fill="#F0FAF0"/>
+                    <path d="M356 32 L356 92 L416 92" fill="none" stroke="#82C982" strokeWidth="20" strokeLinejoin="round"/>
+                    <circle cx="196" cy="200" r="22" fill="#2E4A2E"/>
+                    <circle cx="316" cy="200" r="22" fill="#2E4A2E"/>
+                    <path d="M180 248 Q256 316 332 248" stroke="#2E4A2E" strokeWidth="22" strokeLinecap="round" fill="none"/>
+                    <text x="240" y="430" fontSize="108" fontWeight="800" fontFamily="'Helvetica Neue',Arial,sans-serif" textAnchor="middle" fill="#2E4A2E">md</text>
                   </svg>
                 </div>
                 <h2>Hello MD Editor</h2>
