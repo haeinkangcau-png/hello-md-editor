@@ -8,6 +8,7 @@ const isDev = process.env.NODE_ENV === 'development'
 
 // ── Window ─────────────────────────────────────────────────
 function createWindow() {
+  const iconPath = path.join(__dirname, '../build/icon.png')
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -15,7 +16,8 @@ function createWindow() {
     minHeight: 600,
     show: false,
     backgroundColor: '#ffffff',
-    title: 'MD Viewer',
+    title: 'Hello MD Editor',
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

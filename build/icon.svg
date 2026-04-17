@@ -1,0 +1,20 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- page body -->
+  <rect x="80" y="40" width="304" height="400" rx="56" fill="#FFF8E1"/>
+  <rect x="80" y="40" width="304" height="400" rx="56" fill="none" stroke="#FFAB00" stroke-width="20"/>
+  <!-- folded corner -->
+  <path d="M288 40 L384 136 L288 136 Z" fill="#FFAB00" opacity="0.3"/>
+  <path d="M288 40 L288 136 L384 136" fill="none" stroke="#FFAB00" stroke-width="20" stroke-linejoin="round"/>
+  <!-- rosy cheeks -->
+  <circle cx="152" cy="248" r="40" fill="#FFCCBC" opacity="0.7"/>
+  <circle cx="312" cy="248" r="40" fill="#FFCCBC" opacity="0.7"/>
+  <!-- eyes -->
+  <circle cx="176" cy="216" r="28" fill="#FFAB00"/>
+  <circle cx="296" cy="216" r="28" fill="#FFAB00"/>
+  <circle cx="186" cy="206" r="10" fill="white"/>
+  <circle cx="306" cy="206" r="10" fill="white"/>
+  <!-- smile -->
+  <path d="M152 288 Q236 360 320 288" stroke="#FFAB00" stroke-width="20" stroke-linecap="round" fill="none"/>
+  <!-- lines at bottom -->
+  <line x1="136" y1="384" x2="328" y2="384" stroke="#FFE082" stroke-width="16" stroke-linecap="round"/>
+</svg>
