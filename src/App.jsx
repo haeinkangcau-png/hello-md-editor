@@ -259,19 +259,16 @@ export default function App() {
       {/* ── Header ── */}
       <header className="app-header">
         <div className="app-title">
-          <svg width="22" height="22" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-            <rect x="10" y="5" width="38" height="50" rx="7" fill="#FFF8E1"/>
-            <rect x="10" y="5" width="38" height="50" rx="7" fill="none" stroke="#FFAB00" strokeWidth="2.5"/>
-            <path d="M36 5 L48 17 L36 17 Z" fill="#FFAB00" opacity="0.3"/>
-            <path d="M36 5 L36 17 L48 17" fill="none" stroke="#FFAB00" strokeWidth="2.5" strokeLinejoin="round"/>
-            <circle cx="19" cy="31" r="5" fill="#FFCCBC" opacity="0.7"/>
-            <circle cx="39" cy="31" r="5" fill="#FFCCBC" opacity="0.7"/>
-            <circle cx="22" cy="27" r="3.5" fill="#FFAB00"/>
-            <circle cx="37" cy="27" r="3.5" fill="#FFAB00"/>
-            <circle cx="23" cy="26" r="1.3" fill="white"/>
-            <circle cx="38" cy="26" r="1.3" fill="white"/>
-            <path d="M19 36 Q29.5 45 40 36" stroke="#FFAB00" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-            <line x1="17" y1="48" x2="41" y2="48" stroke="#FFE082" strokeWidth="2" strokeLinecap="round"/>
+          <svg width="22" height="22" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <rect x="64" y="48" width="352" height="420" rx="48" fill="#F0FAF0"/>
+            <rect x="64" y="48" width="352" height="420" rx="48" fill="none" stroke="#82C982" strokeWidth="20"/>
+            <path d="M320 48 L416 144 L320 144 Z" fill="#F0FAF0"/>
+            <path d="M320 48 L320 144 L416 144" fill="none" stroke="#82C982" strokeWidth="20" strokeLinejoin="round"/>
+            <circle cx="196" cy="220" r="22" fill="#2E4A2E"/>
+            <circle cx="316" cy="220" r="22" fill="#2E4A2E"/>
+            <path d="M180 280 Q256 348 332 280" stroke="#2E4A2E" strokeWidth="22" strokeLinecap="round" fill="none"/>
+            <path d="M168 360 Q148 360 148 380 L148 400 Q148 420 128 420 Q148 420 148 440 L148 460 Q148 480 168 480" fill="none" stroke="#82C982" strokeWidth="18" strokeLinecap="round"/>
+            <path d="M344 360 Q364 360 364 380 L364 400 Q364 420 384 420 Q364 420 364 440 L364 460 Q364 480 344 480" fill="none" stroke="#82C982" strokeWidth="18" strokeLinecap="round"/>
           </svg>
           Hello MD Editor
         </div>
@@ -382,19 +379,16 @@ export default function App() {
             ) : (
               <div className="welcome">
                 <div className="welcome-icon">
-                  <svg width="72" height="72" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="10" y="5" width="38" height="50" rx="7" fill="#FFF8E1"/>
-                    <rect x="10" y="5" width="38" height="50" rx="7" fill="none" stroke="#FFAB00" strokeWidth="2.5"/>
-                    <path d="M36 5 L48 17 L36 17 Z" fill="#FFAB00" opacity="0.3"/>
-                    <path d="M36 5 L36 17 L48 17" fill="none" stroke="#FFAB00" strokeWidth="2.5" strokeLinejoin="round"/>
-                    <circle cx="19" cy="31" r="5" fill="#FFCCBC" opacity="0.7"/>
-                    <circle cx="39" cy="31" r="5" fill="#FFCCBC" opacity="0.7"/>
-                    <circle cx="22" cy="27" r="3.5" fill="#FFAB00"/>
-                    <circle cx="37" cy="27" r="3.5" fill="#FFAB00"/>
-                    <circle cx="23" cy="26" r="1.3" fill="white"/>
-                    <circle cx="38" cy="26" r="1.3" fill="white"/>
-                    <path d="M19 36 Q29.5 45 40 36" stroke="#FFAB00" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-                    <line x1="17" y1="48" x2="41" y2="48" stroke="#FFE082" strokeWidth="2" strokeLinecap="round"/>
+                  <svg width="80" height="80" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="64" y="48" width="352" height="420" rx="48" fill="#F0FAF0"/>
+                    <rect x="64" y="48" width="352" height="420" rx="48" fill="none" stroke="#82C982" strokeWidth="20"/>
+                    <path d="M320 48 L416 144 L320 144 Z" fill="#F0FAF0"/>
+                    <path d="M320 48 L320 144 L416 144" fill="none" stroke="#82C982" strokeWidth="20" strokeLinejoin="round"/>
+                    <circle cx="196" cy="220" r="22" fill="#2E4A2E"/>
+                    <circle cx="316" cy="220" r="22" fill="#2E4A2E"/>
+                    <path d="M180 280 Q256 348 332 280" stroke="#2E4A2E" strokeWidth="22" strokeLinecap="round" fill="none"/>
+                    <path d="M168 360 Q148 360 148 380 L148 400 Q148 420 128 420 Q148 420 148 440 L148 460 Q148 480 168 480" fill="none" stroke="#82C982" strokeWidth="18" strokeLinecap="round"/>
+                    <path d="M344 360 Q364 360 364 380 L364 400 Q364 420 384 420 Q364 420 364 440 L364 460 Q364 480 344 480" fill="none" stroke="#82C982" strokeWidth="18" strokeLinecap="round"/>
                   </svg>
                 </div>
                 <h2>Hello MD Editor</h2>

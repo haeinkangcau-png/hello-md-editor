@@ -1,20 +1,22 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <!-- page body -->
-  <rect x="80" y="40" width="304" height="400" rx="56" fill="#FFF8E1"/>
-  <rect x="80" y="40" width="304" height="400" rx="56" fill="none" stroke="#FFAB00" stroke-width="20"/>
+  <!-- document body -->
+  <rect x="64" y="48" width="352" height="420" rx="48" fill="#F0FAF0"/>
+  <rect x="64" y="48" width="352" height="420" rx="48" fill="none" stroke="#82C982" stroke-width="20"/>
   <!-- folded corner -->
-  <path d="M288 40 L384 136 L288 136 Z" fill="#FFAB00" opacity="0.3"/>
-  <path d="M288 40 L288 136 L384 136" fill="none" stroke="#FFAB00" stroke-width="20" stroke-linejoin="round"/>
-  <!-- rosy cheeks -->
-  <circle cx="152" cy="248" r="40" fill="#FFCCBC" opacity="0.7"/>
-  <circle cx="312" cy="248" r="40" fill="#FFCCBC" opacity="0.7"/>
+  <path d="M320 48 L416 144 L320 144 Z" fill="#F0FAF0"/>
+  <path d="M320 48 L320 144 L416 144" fill="none" stroke="#82C982" stroke-width="20" stroke-linejoin="round"/>
+  <!-- cover the inner corner seam -->
+  <path d="M322 50 L322 142 L414 142" fill="none" stroke="#F0FAF0" stroke-width="6"/>
   <!-- eyes -->
-  <circle cx="176" cy="216" r="28" fill="#FFAB00"/>
-  <circle cx="296" cy="216" r="28" fill="#FFAB00"/>
-  <circle cx="186" cy="206" r="10" fill="white"/>
-  <circle cx="306" cy="206" r="10" fill="white"/>
+  <circle cx="196" cy="220" r="22" fill="#2E4A2E"/>
+  <circle cx="316" cy="220" r="22" fill="#2E4A2E"/>
   <!-- smile -->
-  <path d="M152 288 Q236 360 320 288" stroke="#FFAB00" stroke-width="20" stroke-linecap="round" fill="none"/>
-  <!-- lines at bottom -->
-  <line x1="136" y1="384" x2="328" y2="384" stroke="#FFE082" stroke-width="16" stroke-linecap="round"/>
+  <path d="M180 280 Q256 348 332 280" stroke="#2E4A2E" stroke-width="22" stroke-linecap="round" fill="none"/>
+  <!-- curly braces -->
+  <!-- left { -->
+  <path d="M168 360 Q148 360 148 380 L148 400 Q148 420 128 420 Q148 420 148 440 L148 460 Q148 480 168 480"
+        fill="none" stroke="#82C982" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- right } -->
+  <path d="M344 360 Q364 360 364 380 L364 400 Q364 420 384 420 Q364 420 364 440 L364 460 Q364 480 344 480"
+        fill="none" stroke="#82C982" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
