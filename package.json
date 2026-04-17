@@ -1,6 +1,8 @@
 {
   "name": "md-viewer",
   "version": "1.0.0",
+  "description": "Markdown viewer and editor",
+  "author": "neurophet",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
