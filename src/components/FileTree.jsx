@@ -97,7 +97,7 @@ const FileTree = forwardRef(function FileTree(
   { rootDir, onRootDirChange, currentFile, onFileSelect, saveStatus, recentFiles = [], onRemoveRecent },
   ref
 ) {
-  const [activeTab, setActiveTab] = useState('explorer')
+  const [activeTab, setActiveTab] = useState('recent')
   const [inputDir, setInputDir] = useState(rootDir)
   const [items, setItems] = useState([])
   const [error, setError] = useState('')
@@ -137,16 +137,16 @@ const FileTree = forwardRef(function FileTree(
       {/* ── Tabs ── */}
       <div className="tree-tabs">
         <button
-          className={`tree-tab ${activeTab === 'explorer' ? 'active' : ''}`}
-          onClick={() => setActiveTab('explorer')}
-        >
-          탐색기
-        </button>
-        <button
           className={`tree-tab ${activeTab === 'recent' ? 'active' : ''}`}
           onClick={() => setActiveTab('recent')}
         >
           최근 문서
+        </button>
+        <button
+          className={`tree-tab ${activeTab === 'explorer' ? 'active' : ''}`}
+          onClick={() => setActiveTab('explorer')}
+        >
+          탐색기
         </button>
 
         {activeTab === 'explorer' && (
