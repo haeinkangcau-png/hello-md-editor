@@ -147,12 +147,27 @@ export default function App() {
     try {
       setFileLoading(true)
       setHeadings([])
-      const { content } = await readFile(file.path)
-      setCurrentFile(file)
+      let targetFile = file
+      let content
+      try {
+        const result = await readFile(file.path)
+        content = result.content
+      } catch {
+        // Web: 새로고침 후 파일 핸들 만료 → 다시 파일 선택
+        if (isWeb) {
+          const picked = await pickAndReadFile()
+          if (!picked) { setFileLoading(false); return }
+          content = picked.content
+          targetFile = { path: picked.path, name: picked.name }
+        } else {
+          throw new Error(`파일을 열 수 없습니다: ${file.name}`)
+        }
+      }
+      setCurrentFile(targetFile)
       setFileContent(content)
       setSaveStatus('saved')
-      document.title = `${file.name} — MD Viewer`
-      addToRecent({ path: file.path, name: file.name })
+      document.title = `${targetFile.name} — MD Viewer`
+      addToRecent({ path: targetFile.path, name: targetFile.name })
     } catch (err) {
       alert(`파일을 열 수 없습니다: ${err.message}`)
     } finally {
@@ -378,10 +393,12 @@ export default function App() {
                     onClick={async () => {
                       const result = await pickAndReadFile()
                       if (result) {
-                        setCurrentFile({ path: result.path, name: result.name })
+                        const file = { path: result.path, name: result.name }
+                        setCurrentFile(file)
                         setFileContent(result.content)
                         setSaveStatus('saved')
                         document.title = `${result.name} — MD Viewer`
+                        addToRecent(file)
                       }
                     }}
                   >
