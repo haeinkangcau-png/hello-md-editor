@@ -23,7 +23,10 @@ export default function App() {
   const [showPreview, setShowPreview] = useState(false)
   const [previewSplit, setPreviewSplit] = useState(50)  // editor width %
   const [recentFiles, setRecentFiles] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('md-viewer-recent') || '[]') }
+    try {
+      const saved = JSON.parse(localStorage.getItem('md-viewer-recent') || '[]')
+      return saved.sort((a, b) => b.openedAt - a.openedAt)   // 앱 시작 시 최신 순 정렬
+    }
     catch { return [] }
   })
 
@@ -89,8 +92,17 @@ export default function App() {
   // ── Recent files ───────────────────────────────────────────
   const addToRecent = useCallback((file) => {
     setRecentFiles(prev => {
-      const filtered = prev.filter(f => f.path !== file.path)
-      const updated = [{ path: file.path, name: file.name, openedAt: Date.now() }, ...filtered].slice(0, 20)
+      const exists = prev.some(f => f.path === file.path)
+      if (exists) {
+        // 이미 목록에 있으면 순서 유지, timestamp만 갱신
+        const updated = prev.map(f =>
+          f.path === file.path ? { ...f, openedAt: Date.now() } : f
+        )
+        localStorage.setItem('md-viewer-recent', JSON.stringify(updated))
+        return updated
+      }
+      // 새 파일이면 맨 위에 추가
+      const updated = [{ path: file.path, name: file.name, openedAt: Date.now() }, ...prev].slice(0, 20)
       localStorage.setItem('md-viewer-recent', JSON.stringify(updated))
       return updated
     })
@@ -147,27 +159,12 @@ export default function App() {
     try {
       setFileLoading(true)
       setHeadings([])
-      let targetFile = file
-      let content
-      try {
-        const result = await readFile(file.path)
-        content = result.content
-      } catch {
-        // Web: 새로고침 후 파일 핸들 만료 → 다시 파일 선택
-        if (isWeb) {
-          const picked = await pickAndReadFile()
-          if (!picked) { setFileLoading(false); return }
-          content = picked.content
-          targetFile = { path: picked.path, name: picked.name }
-        } else {
-          throw new Error(`파일을 열 수 없습니다: ${file.name}`)
-        }
-      }
-      setCurrentFile(targetFile)
+      const { content } = await readFile(file.path)
+      setCurrentFile(file)
       setFileContent(content)
       setSaveStatus('saved')
-      document.title = `${targetFile.name} — MD Viewer`
-      addToRecent({ path: targetFile.path, name: targetFile.name })
+      document.title = `${file.name} — MD Viewer`
+      addToRecent({ path: file.path, name: file.name })
     } catch (err) {
       alert(`파일을 열 수 없습니다: ${err.message}`)
     } finally {

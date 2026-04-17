@@ -2,10 +2,77 @@
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI
 
-// ── Web: handle registry ───────────────────────────────────
-// Maps virtual path string → FileSystemFileHandle
+// ── Web: in-memory handle cache ────────────────────────────
 const fileHandles = new Map()
-function regFile(path, handle) { fileHandles.set(path, handle) }
+
+// ── IndexedDB: persist handles across sessions ─────────────
+const idb = (() => {
+  let _db = null
+
+  async function open() {
+    if (_db) return _db
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('md-viewer-v1', 1)
+      req.onupgradeneeded = () => req.result.createObjectStore('handles')
+      req.onsuccess = () => { _db = req.result; resolve(_db) }
+      req.onerror = () => reject(req.error)
+    })
+  }
+
+  return {
+    async set(key, value) {
+      try {
+        const db = await open()
+        await new Promise((res, rej) => {
+          const tx = db.transaction('handles', 'readwrite')
+          tx.objectStore('handles').put(value, key)
+          tx.oncomplete = res
+          tx.onerror = () => rej(tx.error)
+        })
+      } catch { /* silent */ }
+    },
+    async get(key) {
+      try {
+        const db = await open()
+        return await new Promise((res, rej) => {
+          const tx = db.transaction('handles', 'readonly')
+          const req = tx.objectStore('handles').get(key)
+          req.onsuccess = () => res(req.result)
+          req.onerror = () => rej(req.error)
+        })
+      } catch { return undefined }
+    },
+  }
+})()
+
+function regFile(path, handle) {
+  fileHandles.set(path, handle)
+  idb.set(path, handle)   // fire-and-forget
+}
+
+// Request / verify permission on a restored handle
+async function checkPermission(handle, mode = 'readwrite') {
+  if (typeof handle.queryPermission !== 'function') return true
+  const q = await handle.queryPermission({ mode })
+  if (q === 'granted') return true
+  const r = await handle.requestPermission({ mode })
+  return r === 'granted'
+}
+
+// Resolve handle: memory → IndexedDB → null
+async function resolveHandle(path, mode = 'readwrite') {
+  const cached = fileHandles.get(path)
+  if (cached) return cached
+
+  const stored = await idb.get(path)
+  if (!stored) return null
+
+  const ok = await checkPermission(stored, mode)
+  if (!ok) return null
+
+  fileHandles.set(path, stored)   // restore to memory
+  return stored
+}
 
 // ── Web: recursive directory listing ──────────────────────
 async function listDirHandle(dirHandle, parentPath) {
@@ -44,15 +111,14 @@ function makeElectronAPI() {
 function makeWebAPI() {
   return {
     listFiles: async (virtualPath) => {
-      // virtualPath is stored in fileHandles as a dirHandle
-      const dirHandle = fileHandles.get(virtualPath)
+      const dirHandle = await resolveHandle(virtualPath, 'readwrite')
       if (!dirHandle) throw new Error('디렉토리를 찾을 수 없습니다')
       const items = await listDirHandle(dirHandle, virtualPath)
       return { items, dir: virtualPath }
     },
 
     readFile: async (path) => {
-      const handle = fileHandles.get(path)
+      const handle = await resolveHandle(path, 'read')
       if (!handle) throw new Error('파일을 찾을 수 없습니다')
       const file = await handle.getFile()
       const content = await file.text()
@@ -60,7 +126,7 @@ function makeWebAPI() {
     },
 
     writeFile: async (path, content) => {
-      const handle = fileHandles.get(path)
+      const handle = await resolveHandle(path, 'readwrite')
       if (!handle) throw new Error('파일 핸들을 찾을 수 없습니다')
       const writable = await handle.createWritable()
       await writable.write(content)
@@ -68,13 +134,13 @@ function makeWebAPI() {
       return {}
     },
 
-    checkExists: async (path) => fileHandles.has(path),
+    checkExists: async (path) => !!(await resolveHandle(path, 'read')),
 
     openFolder: async () => {
       try {
         const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' })
         const virtualPath = dirHandle.name
-        regFile(virtualPath, dirHandle)         // store dir handle under its name
+        regFile(virtualPath, dirHandle)
         return virtualPath
       } catch {
         return null
