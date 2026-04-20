@@ -81,7 +81,7 @@ async function listDirHandle(dirHandle, parentPath) {
     const path = `${parentPath}/${name}`
     if (handle.kind === 'directory') {
       items.push({ name, path, isDirectory: true, handle })
-    } else if (handle.kind === 'file' && name.endsWith('.md')) {
+    } else if (handle.kind === 'file' && (name.endsWith('.md') || name.endsWith('.html'))) {
       regFile(path, handle)
       items.push({ name, path, isDirectory: false })
     }
@@ -181,7 +181,7 @@ export async function pickAndReadFile() {
   if (isElectron) return null
   try {
     const [handle] = await window.showOpenFilePicker({
-      types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md'] } }],
+      types: [{ description: 'Markdown / HTML', accept: { 'text/markdown': ['.md'], 'text/html': ['.html'] } }],
     })
     regFile(handle.name, handle)
     const file = await handle.getFile()

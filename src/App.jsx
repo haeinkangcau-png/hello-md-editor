@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import FileTree from './components/FileTree'
 import TocPanel from './components/TocPanel'
 import Editor from './components/Editor'
+import HtmlEditor from './components/HtmlEditor'
 import MarkdownPreview from './components/MarkdownPreview'
 import SaveAsModal from './components/SaveAsModal'
 import StatusBar from './components/StatusBar'
@@ -29,6 +30,8 @@ export default function App() {
     }
     catch { return [] }
   })
+
+  const isHtml = currentFile?.name.endsWith('.html') || currentFile?.name.endsWith('.htm')
 
   const contentRef = useRef('')
   const currentFileRef = useRef(null)
@@ -230,7 +233,7 @@ export default function App() {
         if (item.kind !== 'file') continue
         const handle = await item.getAsFileSystemHandle?.()
         if (!handle || handle.kind !== 'file') continue
-        if (!handle.name.endsWith('.md')) continue
+        if (!handle.name.endsWith('.md') && !handle.name.endsWith('.html')) continue
         const { registerFileHandle } = await import('./api')
         registerFileHandle(handle.name, handle)
         const file = await handle.getFile()
@@ -240,10 +243,10 @@ export default function App() {
       }
     } else {
       const files = [...(e.dataTransfer.files || [])]
-      const mdFile = files.find(f => f.name.endsWith('.md'))
-      if (mdFile) {
-        await handleFileSelect({ path: mdFile.path, name: mdFile.name })
-        const parentDir = mdFile.path.split(/[\\/]/).slice(0, -1).join('\\')
+      const file = files.find(f => f.name.endsWith('.md') || f.name.endsWith('.html'))
+      if (file) {
+        await handleFileSelect({ path: file.path, name: file.name })
+        const parentDir = file.path.split(/[\\/]/).slice(0, -1).join('\\')
         if (parentDir) fileTreeRef.current?.loadDir(parentDir)
       }
     }
@@ -289,7 +292,7 @@ export default function App() {
           <button
             className={`btn btn-view ${showPreview ? 'active' : ''}`}
             onClick={() => setShowPreview(v => !v)}
-            disabled={!currentFile}
+            disabled={!currentFile || isHtml}
             title="미리보기 분할 (View)"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -351,7 +354,7 @@ export default function App() {
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                   <polyline points="14,2 14,8 20,8"/>
                 </svg>
-                <p>.md 파일을 여기에 놓으세요</p>
+                <p>.md / .html 파일을 여기에 놓으세요</p>
               </div>
             </div>
           )}
@@ -359,7 +362,7 @@ export default function App() {
           {/* Editor panel */}
           <div
             className="editor-panel"
-            style={showPreview && currentFile ? { width: `${previewSplit}%` } : {}}
+            style={showPreview && currentFile && !isHtml ? { width: `${previewSplit}%` } : {}}
           >
             {fileLoading ? (
               <div className="loading">
@@ -367,14 +370,22 @@ export default function App() {
                 <span>불러오는 중…</span>
               </div>
             ) : currentFile ? (
-              <Editor
-                ref={editorRef}
-                key={currentFile.path}
-                initialContent={fileContent}
-                onContentChange={handleContentChange}
-                onHeadingsChange={setHeadings}
-                onSave={handleSave}
-              />
+              isHtml ? (
+                <HtmlEditor
+                  key={currentFile.path}
+                  initialContent={fileContent}
+                  onContentChange={handleContentChange}
+                />
+              ) : (
+                <Editor
+                  ref={editorRef}
+                  key={currentFile.path}
+                  initialContent={fileContent}
+                  onContentChange={handleContentChange}
+                  onHeadingsChange={setHeadings}
+                  onSave={handleSave}
+                />
+              )
             ) : (
               <div className="welcome">
                 <div className="welcome-icon">
@@ -390,7 +401,7 @@ export default function App() {
                   </svg>
                 </div>
                 <h2>Hello MD Editor</h2>
-                <p>왼쪽에서 폴더를 열거나<br/>.md 파일을 여기로 드래그하세요.</p>
+                <p>왼쪽에서 폴더를 열거나<br/>.md · .html 파일을 여기로 드래그하세요.</p>
                 {isWeb && (
                   <button
                     className="btn btn-save"
@@ -419,7 +430,7 @@ export default function App() {
           </div>
 
           {/* Preview split */}
-          {showPreview && currentFile && (
+          {showPreview && currentFile && !isHtml && (
             <>
               <div
                 className="preview-divider"

@@ -1330,6 +1330,220 @@ kbd {
   margin: 0;
 }
 
+/* ── HTML Editor ──────────────────────────────────────────── */
+.html-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.html-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+  min-height: 38px;
+}
+
+.html-file-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.html-mode-tabs {
+  display: flex;
+  gap: 3px;
+  background: var(--color-surface2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.html-mode-tab {
+  padding: 3px 11px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.html-mode-tab:hover { color: var(--color-text); }
+.html-mode-tab.active {
+  background: var(--color-bg);
+  color: var(--color-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.html-mode-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin-left: 4px;
+}
+
+.html-editor-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+.html-text-iframe {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+}
+
+.html-raw-mode {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.html-raw-textarea {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  padding: 20px 24px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  resize: none;
+  outline: none;
+  background: var(--color-bg);
+  color: var(--color-text);
+  tab-size: 2;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+.html-raw-divider {
+  width: 5px;
+  flex-shrink: 0;
+  background: var(--color-border);
+  cursor: ew-resize;
+}
+
+.html-raw-preview {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: #fff;
+}
+
+.html-capture-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.html-width-input-wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.html-width-input {
+  width: 64px;
+  border: none;
+  outline: none;
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--color-text);
+  background: transparent;
+  text-align: right;
+  -moz-appearance: textfield;
+}
+.html-width-input::-webkit-outer-spin-button,
+.html-width-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.html-width-input::placeholder { color: var(--color-text-muted); font-family: var(--font-ui); }
+
+.html-width-unit {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  padding: 0 5px 0 2px;
+  user-select: none;
+}
+
+.html-scale-tabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.html-scale-tab {
+  padding: 3px 9px;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-bg);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.html-scale-tab:last-child { border-right: none; }
+.html-scale-tab:hover { background: var(--color-surface2); color: var(--color-text); }
+.html-scale-tab.active {
+  background: var(--color-accent);
+  color: white;
+}
+
+.html-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.html-copy-btn:hover:not(:disabled) {
+  background: var(--color-surface2);
+  color: var(--color-text);
+}
+.html-copy-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.html-copy-btn.copied {
+  border-color: #2ea043;
+  color: #1a7f37;
+  background: #f0fdf4;
+}
+
 /* ── Scrollbars ───────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
