@@ -339,7 +339,7 @@ export default function App() {
                 title="드래그하여 크기 조절"
               />
               <div className="sidebar-pane" style={{ height: `${100 - sidebarSplit}%` }}>
-                <TocPanel headings={headings} onHeadingClick={handleHeadingClick} />
+                <TocPanel headings={headings} onHeadingClick={handleHeadingClick} markdown={fileContent} />
               </div>
             </>
           )}

@@ -35,6 +35,7 @@ const Editor = forwardRef(function Editor(
   const isSettingContent = useRef(false)
   const [editMode, setEditMode] = useState('wysiwyg') // 'wysiwyg' | 'raw'
   const [rawContent, setRawContent] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const editor = useEditor({
     extensions: [
@@ -66,9 +67,18 @@ const Editor = forwardRef(function Editor(
   useImperativeHandle(ref, () => ({
     scrollToPos: (pos) => {
       if (!editor) return
-      editor.commands.setTextSelection(pos)
-      editor.commands.focus()
-      editor.commands.scrollIntoView()
+      editor.commands.setTextSelection(pos + 1)
+      editor.view.focus()
+      requestAnimationFrame(() => {
+        const domNode = editor.view.nodeDOM(pos)
+        if (!domNode) return
+        const el = domNode instanceof Element ? domNode : domNode.parentElement
+        if (!el) return
+        const scrollEl = el.closest('.editor-scroll')
+        if (!scrollEl) return
+        const offset = el.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top
+        scrollEl.scrollBy({ top: offset, behavior: 'smooth' })
+      })
     },
   }), [editor])
 
@@ -131,6 +141,17 @@ const Editor = forwardRef(function Editor(
     }
   }, [editMode, editor, rawContent, onContentChange, onHeadingsChange])
 
+  const handleCopyAll = useCallback(async () => {
+    const md = editMode === 'wysiwyg'
+      ? editor.storage.markdown.getMarkdown()
+      : rawContent
+    try {
+      await navigator.clipboard.writeText(md)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch { /* silent */ }
+  }, [editMode, editor, rawContent])
+
   const handleRawChange = useCallback((e) => {
     const val = e.target.value
     setRawContent(val)
@@ -175,19 +196,43 @@ const Editor = forwardRef(function Editor(
           </button>
         </div>
 
-        <button
-          className="normalize-btn"
-          onClick={handleNormalize}
-          title="파일 내 HTML 테이블을 Markdown 표로 일괄 변환"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="17 1 21 5 17 9"/>
-            <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-            <polyline points="7 23 3 19 7 15"/>
-            <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-          </svg>
-          HTML → MD
-        </button>
+        <div className="mode-bar-right">
+          <button
+            className="copy-md-btn"
+            onClick={handleCopyAll}
+            title="전체 내용을 Markdown으로 클립보드에 복사"
+          >
+            {copied ? (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                복사됨
+              </>
+            ) : (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                MD 복사
+              </>
+            )}
+          </button>
+          <button
+            className="normalize-btn"
+            onClick={handleNormalize}
+            title="파일 내 HTML 테이블을 Markdown 표로 일괄 변환"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="17 1 21 5 17 9"/>
+              <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+              <polyline points="7 23 3 19 7 15"/>
+              <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+            </svg>
+            HTML → MD
+          </button>
+        </div>
       </div>
 
       {/* ── WYSIWYG mode ── */}

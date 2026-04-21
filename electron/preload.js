@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkExists: (path)             => ipcRenderer.invoke('check-exists', path),
   openFolder:      ()                 => ipcRenderer.invoke('open-folder'),
   saveDialog:      (defaultPath)      => ipcRenderer.invoke('save-dialog', defaultPath),
-  captureAndCopy:  (rect)             => ipcRenderer.invoke('capture-and-copy', rect),
-  captureFullHtml: (opts)             => ipcRenderer.invoke('capture-full-html', opts),
+  captureAndCopy:    (rect)           => ipcRenderer.invoke('capture-and-copy', rect),
+  captureFullHtml:   (opts)           => ipcRenderer.invoke('capture-full-html', opts),
+  revealInExplorer:  (filePath)       => ipcRenderer.invoke('reveal-in-explorer', filePath),
 })

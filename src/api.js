@@ -98,12 +98,13 @@ function makeElectronAPI() {
   const api = window.electronAPI
   const wrap = p => p.catch(err => { throw new Error(err.message || String(err)) })
   return {
-    listFiles:   dir          => wrap(api.listFiles(dir)),
-    readFile:    path         => wrap(api.readFile(path)),
-    writeFile:   (path, cnt)  => wrap(api.writeFile(path, cnt)),
-    checkExists: path         => api.checkExists(path).catch(() => false),
-    openFolder:  ()           => api.openFolder(),
-    saveDialog:  defaultPath  => api.saveDialog(defaultPath),
+    listFiles:        dir          => wrap(api.listFiles(dir)),
+    readFile:         path         => wrap(api.readFile(path)),
+    writeFile:        (path, cnt)  => wrap(api.writeFile(path, cnt)),
+    checkExists:      path         => api.checkExists(path).catch(() => false),
+    openFolder:       ()           => api.openFolder(),
+    saveDialog:       defaultPath  => api.saveDialog(defaultPath),
+    revealInExplorer: path         => api.revealInExplorer(path),
   }
 }
 
@@ -147,6 +148,8 @@ function makeWebAPI() {
       }
     },
 
+    revealInExplorer: async () => {},
+
     saveDialog: async (currentPath) => {
       try {
         const handle = await window.showSaveFilePicker({
@@ -166,12 +169,13 @@ function makeWebAPI() {
 // ── Export ─────────────────────────────────────────────────
 const impl = isElectron ? makeElectronAPI() : makeWebAPI()
 
-export const listFiles   = impl.listFiles
-export const readFile    = impl.readFile
-export const writeFile   = impl.writeFile
-export const checkExists = impl.checkExists
-export const openFolder  = impl.openFolder
-export const saveDialog  = impl.saveDialog
+export const listFiles        = impl.listFiles
+export const readFile         = impl.readFile
+export const writeFile        = impl.writeFile
+export const checkExists      = impl.checkExists
+export const openFolder       = impl.openFolder
+export const saveDialog       = impl.saveDialog
+export const revealInExplorer = impl.revealInExplorer
 
 // Web only: register a file handle after user picks a file
 export function registerFileHandle(path, handle) { regFile(path, handle) }

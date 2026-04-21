@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, clipboard } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, clipboard, shell } = require('electron')
 const fs = require('fs')
 const path = require('path')
 
@@ -166,6 +166,10 @@ ipcMain.handle('capture-full-html', async (_, { html, viewWidth, scale = 2 }) =>
   } finally {
     offscreen.destroy()
   }
+})
+
+ipcMain.handle('reveal-in-explorer', (_, filePath) => {
+  shell.showItemInFolder(path.resolve(filePath))
 })
 
 ipcMain.handle('save-dialog', async (_, defaultPath) => {

@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { listFiles, openFolder } from '../api'
+import React, { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
+import { listFiles, openFolder, revealInExplorer } from '../api'
 
 function FileIcon() {
   return (
@@ -102,6 +102,8 @@ const FileTree = forwardRef(function FileTree(
   const [items, setItems] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [contextMenu, setContextMenu] = useState(null) // { x, y, file }
+  const contextMenuRef = useRef(null)
 
   const loadDir = useCallback(async (dir) => {
     if (!dir) return
@@ -121,6 +123,22 @@ const FileTree = forwardRef(function FileTree(
   }, [onRootDirChange])
 
   useImperativeHandle(ref, () => ({ loadDir }), [loadDir])
+
+  const handleContextMenu = useCallback((e, file) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, file })
+  }, [])
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const dismiss = (e) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target)) {
+        setContextMenu(null)
+      }
+    }
+    window.addEventListener('mousedown', dismiss)
+    return () => window.removeEventListener('mousedown', dismiss)
+  }, [contextMenu])
 
   const handleOpenFolder = useCallback(async () => {
     const dir = await openFolder()
@@ -222,6 +240,7 @@ const FileTree = forwardRef(function FileTree(
                 key={file.path}
                 className={`recent-item ${isActive ? 'active' : ''}`}
                 onClick={() => onFileSelect(file)}
+                onContextMenu={(e) => handleContextMenu(e, file)}
                 title={file.path}
               >
                 <span className="recent-item-icon"><FileIcon /></span>
@@ -242,6 +261,22 @@ const FileTree = forwardRef(function FileTree(
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* ── Context menu ── */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          className="context-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            className="context-menu-item"
+            onClick={() => { revealInExplorer(contextMenu.file.path); setContextMenu(null) }}
+          >
+            탐색기에서 열기
+          </button>
         </div>
       )}
     </div>
