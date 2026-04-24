@@ -202,9 +202,10 @@ export default function App() {
       if (filePath) handleFileSelect({ path: filePath, name: filePath.replace(/\\/g, '/').split('/').pop() })
     })
     // Also handle future open-file events (e.g. already-running instance)
-    api.onOpenFile((filePath) => {
+    const removeListener = api.onOpenFile((filePath) => {
       if (filePath) handleFileSelect({ path: filePath, name: filePath.replace(/\\/g, '/').split('/').pop() })
     })
+    return removeListener
   }, [handleFileSelect])
 
   // ── Auto-save debounce ─────────────────────────────────────

@@ -35,6 +35,7 @@ const Editor = forwardRef(function Editor(
   ref
 ) {
   const isSettingContent = useRef(false)
+  const headingDebounceRef = useRef(null)
   const [editMode, setEditMode] = useState('wysiwyg') // 'wysiwyg' | 'raw'
   const [rawContent, setRawContent] = useState('')
   const [copied, setCopied] = useState(false)
@@ -72,7 +73,11 @@ const Editor = forwardRef(function Editor(
       if (isSettingContent.current) return
       const markdown = editor.storage.markdown.getMarkdown()
       onContentChange(markdown, countWords(editor.getText()))
-      onHeadingsChange?.(extractHeadings(editor))
+      // Debounce heading extraction — no need to traverse the full doc on every keystroke
+      clearTimeout(headingDebounceRef.current)
+      headingDebounceRef.current = setTimeout(() => {
+        onHeadingsChange?.(extractHeadings(editor))
+      }, 300)
     },
   })
 
