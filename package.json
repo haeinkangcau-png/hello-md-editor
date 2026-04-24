@@ -17,6 +17,7 @@
     "appId": "com.neurophet.mdviewer",
     "productName": "Hello MD Editor",
     "icon": "build/icon.png",
+    "afterPack": "./scripts/afterPack.js",
     "directories": {
       "output": "release"
     },
