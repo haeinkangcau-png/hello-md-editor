@@ -6,6 +6,15 @@ const path = require('path')
 // because isPackaged is not reliable at module-evaluation time.
 const isDev = process.env.NODE_ENV === 'development'
 
+// ── File path from command-line (file association) ─────────
+function getArgFilePath() {
+  // Skip argv[0] (electron/exe). Find first existing .md/.html arg.
+  return process.argv.slice(1).find(a =>
+    /\.(md|html?)$/i.test(a) && fs.existsSync(a)
+  ) || null
+}
+let pendingOpenPath = getArgFilePath()
+
 // ── Window ─────────────────────────────────────────────────
 function createWindow() {
   const iconPath = path.join(__dirname, '../build/icon.png')
@@ -32,6 +41,13 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'))
   }
+
+  // Send pending file path once renderer is ready
+  win.webContents.once('did-finish-load', () => {
+    if (pendingOpenPath) {
+      win.webContents.send('open-file', pendingOpenPath)
+    }
+  })
 }
 
 app.whenReady().then(createWindow)
@@ -58,6 +74,8 @@ function readDir(dirPath) {
 }
 
 // ── IPC Handlers ───────────────────────────────────────────
+ipcMain.handle('get-open-file-path', () => pendingOpenPath)
+
 ipcMain.handle('list-files', (_, dir) => {
   const resolved = path.resolve(dir)
   if (!fs.existsSync(resolved)) throw new Error('디렉토리를 찾을 수 없습니다')

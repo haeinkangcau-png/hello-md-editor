@@ -10,4 +10,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   captureAndCopy:    (rect)           => ipcRenderer.invoke('capture-and-copy', rect),
   captureFullHtml:   (opts)           => ipcRenderer.invoke('capture-full-html', opts),
   revealInExplorer:  (filePath)       => ipcRenderer.invoke('reveal-in-explorer', filePath),
+  getOpenFilePath:   ()               => ipcRenderer.invoke('get-open-file-path'),
+  onOpenFile:        (cb)             => ipcRenderer.on('open-file', (_, p) => cb(p)),
 })

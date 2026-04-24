@@ -193,6 +193,20 @@ export default function App() {
     editorRef.current?.scrollToPos(pos)
   }, [])
 
+  // ── Open file passed via command-line / file association ──
+  useEffect(() => {
+    const api = window.electronAPI
+    if (!api) return
+    // Poll once for a path that was passed before the renderer loaded
+    api.getOpenFilePath().then(filePath => {
+      if (filePath) handleFileSelect({ path: filePath, name: filePath.replace(/\\/g, '/').split('/').pop() })
+    })
+    // Also handle future open-file events (e.g. already-running instance)
+    api.onOpenFile((filePath) => {
+      if (filePath) handleFileSelect({ path: filePath, name: filePath.replace(/\\/g, '/').split('/').pop() })
+    })
+  }, [handleFileSelect])
+
   // ── Auto-save debounce ─────────────────────────────────────
   useEffect(() => {
     if (!autoSave || saveStatus !== 'modified' || !currentFile) return
@@ -203,14 +217,20 @@ export default function App() {
   // ── Keyboard shortcuts ─────────────────────────────────────
   useEffect(() => {
     const onKey = (e) => {
-      if (!(e.ctrlKey || e.metaKey) || e.key !== 's') return
-      e.preventDefault()
-      if (e.shiftKey) handleSaveAs()
-      else handleSave()
+      if (!(e.ctrlKey || e.metaKey)) return
+      if (e.key === 's') {
+        e.preventDefault()
+        if (e.shiftKey) handleSaveAs()
+        else handleSave()
+      }
+      if (e.key === 'f') {
+        e.preventDefault()
+        if (currentFile) editorRef.current?.openSearch()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [handleSave, handleSaveAs])
+  }, [handleSave, handleSaveAs, currentFile])
 
   // ── Drag & Drop ────────────────────────────────────────────
   const handleDragOver = useCallback((e) => {

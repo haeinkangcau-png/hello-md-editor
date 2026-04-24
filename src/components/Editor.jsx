@@ -12,7 +12,9 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { Markdown } from 'tiptap-markdown'
 import Toolbar from './Toolbar'
 import SelectionInfo from './SelectionInfo'
+import SearchBar from './SearchBar'
 import { normalizeHtmlTables } from '../utils/mdRenderer'
+import { SearchHighlight, searchPluginKey } from '../utils/searchExtension'
 
 function countWords(text) {
   return text.trim() ? text.trim().split(/\s+/).length : 0
@@ -37,6 +39,18 @@ const Editor = forwardRef(function Editor(
   const [rawContent, setRawContent] = useState('')
   const [copied, setCopied] = useState(false)
 
+  // ── Search state ───────────────────────────────────────────
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [replaceText, setReplaceText] = useState('')
+  const [showReplace, setShowReplace] = useState(false)
+  const [matchCount, setMatchCount] = useState(0)
+  const [resultIndex, setResultIndex] = useState(0)
+  // Raw-mode only: matches are {start, end} indices in rawContent
+  const [rawMatches, setRawMatches] = useState([])
+  const [rawMatchIdx, setRawMatchIdx] = useState(0)
+  const textareaRef = useRef(null)
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ codeBlock: { languageClassPrefix: 'language-' } }),
@@ -51,6 +65,7 @@ const Editor = forwardRef(function Editor(
         bulletListMarker: '-',
         transformPastedText: true,
       }),
+      SearchHighlight,
     ],
     content: '',
     onUpdate: ({ editor }) => {
@@ -59,10 +74,7 @@ const Editor = forwardRef(function Editor(
       onContentChange(markdown, countWords(editor.getText()))
       onHeadingsChange?.(extractHeadings(editor))
     },
-    onSelectionUpdate: () => setTick(t => t + 1),
   })
-
-  const [, setTick] = useState(0)
 
   useImperativeHandle(ref, () => ({
     scrollToPos: (pos) => {
@@ -80,6 +92,9 @@ const Editor = forwardRef(function Editor(
         scrollEl.scrollBy({ top: offset, behavior: 'smooth' })
       })
     },
+    openSearch: () => {
+      setSearchOpen(true)
+    },
   }), [editor])
 
   // Load initial content on mount
@@ -94,12 +109,79 @@ const Editor = forwardRef(function Editor(
     return () => clearTimeout(t)
   }, [editor])
 
+  const scrollToEditorSelection = useCallback(() => {
+    if (!editor) return
+    requestAnimationFrame(() => {
+      try {
+        const { from } = editor.state.selection
+        const coords = editor.view.coordsAtPos(from)
+        const scrollEl = editor.view.dom.closest('.editor-scroll')
+        if (!scrollEl) return
+        const scrollRect = scrollEl.getBoundingClientRect()
+        const relTop = coords.top - scrollRect.top + scrollEl.scrollTop
+        scrollEl.scrollTo({ top: relTop - scrollEl.clientHeight / 2, behavior: 'smooth' })
+      } catch (_) {}
+    })
+  }, [editor])
+
+  // ── Sync WYSIWYG search term with plugin ───────────────────
+  useEffect(() => {
+    if (!editor || editMode !== 'wysiwyg') return
+    if (!query) {
+      editor.commands.clearSearch()
+      setMatchCount(0)
+      setResultIndex(0)
+      return
+    }
+    editor.commands.setSearchTerm(query)
+    // Read plugin state synchronously after dispatch
+    const ps = searchPluginKey.getState(editor.state)
+    setMatchCount(ps?.results?.length ?? 0)
+    setResultIndex(ps?.resultIndex ?? 0)
+    scrollToEditorSelection()
+  }, [query, editor, editMode, scrollToEditorSelection])
+
+  // ── Raw mode: compute match positions ──────────────────────
+  useEffect(() => {
+    if (editMode !== 'raw' || !query) {
+      setRawMatches([])
+      setRawMatchIdx(0)
+      return
+    }
+    const lowerContent = rawContent.toLowerCase()
+    const lowerQuery = query.toLowerCase()
+    const matches = []
+    let i = 0
+    while ((i = lowerContent.indexOf(lowerQuery, i)) !== -1) {
+      matches.push({ start: i, end: i + query.length })
+      i += query.length
+    }
+    setRawMatches(matches)
+    setRawMatchIdx(0)
+  }, [query, rawContent, editMode])
+
+  // ── Raw mode: highlight current match in textarea ──────────
+  useEffect(() => {
+    if (editMode !== 'raw' || !rawMatches.length || !textareaRef.current) return
+    const match = rawMatches[rawMatchIdx]
+    const ta = textareaRef.current
+    ta.focus()
+    ta.setSelectionRange(match.start, match.end)
+    // Scroll match into view
+    const lines = rawContent.substring(0, match.start).split('\n')
+    const lineNum = lines.length - 1
+    const lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 24
+    ta.scrollTop = Math.max(0, lineNum * lineHeight - ta.clientHeight / 2)
+  }, [rawMatchIdx, rawMatches, editMode])
+
   // ── Mode switching ─────────────────────────────────────────
   const switchToRaw = useCallback(() => {
     if (!editor) return
     const md = editor.storage.markdown.getMarkdown()
     setRawContent(md)
     setEditMode('raw')
+    // Clear WYSIWYG search highlights
+    editor.commands.clearSearch()
   }, [editor])
 
   const switchToWysiwyg = useCallback(() => {
@@ -158,17 +240,110 @@ const Editor = forwardRef(function Editor(
     onContentChange(val, countWords(val))
   }, [onContentChange])
 
+  // ── Search handlers ────────────────────────────────────────
+  const handleSearchClose = useCallback(() => {
+    setSearchOpen(false)
+    setQuery('')
+    setReplaceText('')
+    setShowReplace(false)
+    if (editor) editor.commands.clearSearch()
+  }, [editor])
+
+  const syncWysiwygSearchState = useCallback(() => {
+    if (!editor) return
+    const ps = searchPluginKey.getState(editor.state)
+    setMatchCount(ps?.results?.length ?? 0)
+    setResultIndex(ps?.resultIndex ?? 0)
+  }, [editor])
+
+  const handleNext = useCallback(() => {
+    if (editMode === 'wysiwyg') {
+      editor?.commands.nextSearchResult()
+      syncWysiwygSearchState()
+      scrollToEditorSelection()
+    } else {
+      setRawMatchIdx(i => rawMatches.length ? (i + 1) % rawMatches.length : 0)
+    }
+  }, [editMode, editor, rawMatches, syncWysiwygSearchState, scrollToEditorSelection])
+
+  const handlePrev = useCallback(() => {
+    if (editMode === 'wysiwyg') {
+      editor?.commands.previousSearchResult()
+      syncWysiwygSearchState()
+      scrollToEditorSelection()
+    } else {
+      setRawMatchIdx(i => rawMatches.length ? (i - 1 + rawMatches.length) % rawMatches.length : 0)
+    }
+  }, [editMode, editor, rawMatches, syncWysiwygSearchState, scrollToEditorSelection])
+
+  const handleReplace = useCallback(() => {
+    if (editMode === 'wysiwyg') {
+      editor?.commands.replaceCurrentResult(replaceText)
+      syncWysiwygSearchState()
+    } else {
+      if (!rawMatches.length) return
+      const match = rawMatches[rawMatchIdx]
+      const newContent = rawContent.slice(0, match.start) + replaceText + rawContent.slice(match.end)
+      setRawContent(newContent)
+      onContentChange(newContent, countWords(newContent))
+      // Matches will recompute via useEffect
+    }
+  }, [editMode, editor, replaceText, rawMatches, rawMatchIdx, rawContent, onContentChange, syncWysiwygSearchState])
+
+  const handleReplaceAll = useCallback(() => {
+    if (editMode === 'wysiwyg') {
+      editor?.commands.replaceAllResults(replaceText)
+      syncWysiwygSearchState()
+    } else {
+      if (!query) return
+      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const newContent = rawContent.replace(new RegExp(escaped, 'gi'), replaceText)
+      setRawContent(newContent)
+      onContentChange(newContent, countWords(newContent))
+    }
+  }, [editMode, editor, replaceText, query, rawContent, onContentChange, syncWysiwygSearchState])
+
   const handleKeyDown = useCallback((e) => {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 's') {
       e.preventDefault()
       onSave()
     }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      e.preventDefault()
+      setSearchOpen(true)
+    }
   }, [onSave])
 
   if (!editor) return null
 
+  // Compute display values from React state (reliable, no timing issues)
+  const displayMatchCount = editMode === 'wysiwyg' ? matchCount : rawMatches.length
+  const displayCurrentMatch = displayMatchCount === 0 ? 0
+    : editMode === 'wysiwyg'
+      ? resultIndex + 1
+      : rawMatchIdx + 1
+
   return (
-    <div className="editor-wrapper" onKeyDown={editMode === 'wysiwyg' ? handleKeyDown : undefined}>
+    <div className="editor-wrapper" onKeyDown={handleKeyDown}>
+      {/* ── Search bar ── */}
+      {searchOpen && (
+        <SearchBar
+          query={query}
+          onQueryChange={setQuery}
+          replaceText={replaceText}
+          onReplaceTextChange={setReplaceText}
+          showReplace={showReplace}
+          onToggleReplace={() => setShowReplace(v => !v)}
+          matchCount={displayMatchCount}
+          currentMatch={displayCurrentMatch}
+          onNext={handleNext}
+          onPrev={handlePrev}
+          onReplace={handleReplace}
+          onReplaceAll={handleReplaceAll}
+          onClose={handleSearchClose}
+        />
+      )}
+
       {/* ── Mode toggle bar ── */}
       <div className="mode-bar">
         <div className="mode-toggle">
@@ -248,6 +423,7 @@ const Editor = forwardRef(function Editor(
       {editMode === 'raw' && (
         <div className="editor-scroll raw-scroll">
           <textarea
+            ref={textareaRef}
             className="raw-editor"
             value={rawContent}
             onChange={handleRawChange}
