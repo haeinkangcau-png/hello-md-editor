@@ -126,6 +126,13 @@ html, body, #root {
 }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+.btn-new {
+  background: transparent;
+  color: var(--color-header-text);
+  border-color: #484f58;
+}
+.btn-new:hover { background: #30363d; }
+
 .btn-save {
   background: #238636;
   color: white;

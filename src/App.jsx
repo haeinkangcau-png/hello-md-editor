@@ -122,24 +122,30 @@ export default function App() {
   // ── Save ───────────────────────────────────────────────────
   const handleSave = useCallback(async (overridePath) => {
     const file = currentFileRef.current
-    const savePath = overridePath || file?.path
-    if (!savePath) return
+    let savePath = overridePath || file?.path
+    if (!savePath) {
+      const newPath = await saveDialog(null)
+      if (!newPath) return
+      savePath = newPath
+    }
 
     try {
       setSaveStatus('saving')
       await writeFile(savePath, contentRef.current)
       setSaveStatus('saved')
 
-      if (overridePath && overridePath !== file?.path) {
-        const name = overridePath.replace(/\\/g, '/').split('/').pop()
-        setCurrentFile({ path: overridePath, name })
+      if (savePath !== file?.path) {
+        const name = savePath.replace(/\\/g, '/').split('/').pop()
+        const updated = { path: savePath, name }
+        setCurrentFile(updated)
+        addToRecent(updated)
         document.title = `${name} — Hello MD Editor`
       }
     } catch (err) {
       setSaveStatus('error')
       alert(`저장 실패: ${err.message}`)
     }
-  }, [])
+  }, [addToRecent])
 
   // ── File open ──────────────────────────────────────────────
   const handleFileSelect = useCallback(async (file) => {
@@ -181,6 +187,29 @@ export default function App() {
     if (newPath) handleSave(newPath)
   }, [handleSave])
 
+  // ── New file ───────────────────────────────────────────────
+  const handleNewFile = useCallback(async () => {
+    if (saveStatus === 'modified') {
+      const hasSavedPath = !!currentFileRef.current?.path
+      if (hasSavedPath && autoSave) {
+        await handleSave()
+      } else {
+        const name = currentFileRef.current?.name || 'Untitled.md'
+        const msg = hasSavedPath
+          ? `"${name}"에 저장하지 않은 변경사항이 있습니다.\n저장하고 새 파일을 만드시겠습니까?`
+          : '저장하지 않은 내용이 있습니다. 새 파일을 만들면 사라집니다.\n계속하시겠습니까?'
+        const confirmed = window.confirm(msg)
+        if (!confirmed) return
+        if (hasSavedPath) await handleSave()
+      }
+    }
+    setCurrentFile({ path: null, name: 'Untitled.md' })
+    setFileContent('')
+    setSaveStatus('saved')
+    setHeadings([])
+    document.title = 'Untitled.md — Hello MD Editor'
+  }, [saveStatus, autoSave, handleSave])
+
   // ── Content change from editor ─────────────────────────────
   const handleContentChange = useCallback((markdown, words) => {
     setFileContent(markdown)
@@ -210,7 +239,7 @@ export default function App() {
 
   // ── Auto-save debounce ─────────────────────────────────────
   useEffect(() => {
-    if (!autoSave || saveStatus !== 'modified' || !currentFile) return
+    if (!autoSave || saveStatus !== 'modified' || !currentFile?.path) return
     const timer = setTimeout(() => handleSave(), 2000)
     return () => clearTimeout(timer)
   }, [fileContent, autoSave, saveStatus, currentFile, handleSave])
@@ -219,6 +248,10 @@ export default function App() {
   useEffect(() => {
     const onKey = (e) => {
       if (!(e.ctrlKey || e.metaKey)) return
+      if (e.key === 'n') {
+        e.preventDefault()
+        handleNewFile()
+      }
       if (e.key === 's') {
         e.preventDefault()
         if (e.shiftKey) handleSaveAs()
@@ -231,7 +264,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [handleSave, handleSaveAs, currentFile])
+  }, [handleSave, handleSaveAs, handleNewFile, currentFile])
 
   // ── Drag & Drop ────────────────────────────────────────────
   const handleDragOver = useCallback((e) => {
@@ -322,7 +355,10 @@ export default function App() {
             </svg>
             View
           </button>
-          <button className="btn btn-save" onClick={() => handleSave()} disabled={!currentFile || saveStatus === 'saved'}>
+          <button className="btn btn-new" onClick={handleNewFile} title="새 파일 (Ctrl+N)">
+            New
+          </button>
+          <button className="btn btn-save" onClick={() => handleSave()} disabled={!currentFile || saveStatus !== 'modified'}>
             Save
           </button>
           <button className="btn btn-saveas" onClick={handleSaveAs} disabled={!currentFile}>
@@ -400,7 +436,7 @@ export default function App() {
               ) : (
                 <Editor
                   ref={editorRef}
-                  key={currentFile.path}
+                  key={currentFile.path || '__new__'}
                   initialContent={fileContent}
                   onContentChange={handleContentChange}
                   onHeadingsChange={setHeadings}
@@ -443,6 +479,7 @@ export default function App() {
                   </button>
                 )}
                 <div className="welcome-shortcuts">
+                  <kbd>Ctrl+N</kbd> 새 파일 &nbsp;
                   <kbd>Ctrl+S</kbd> 저장 &nbsp;
                   <kbd>Ctrl+Shift+S</kbd> 다른 이름으로 저장
                 </div>
