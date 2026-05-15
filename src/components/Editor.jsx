@@ -4,6 +4,8 @@ import React, {
 } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import { Extension } from '@tiptap/core'
+import Image from '@tiptap/extension-image'
 import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableHeader from '@tiptap/extension-table-header'
@@ -15,6 +17,27 @@ import SelectionInfo from './SelectionInfo'
 import SearchBar from './SearchBar'
 import { normalizeHtmlTables } from '../utils/mdRenderer'
 import { SearchHighlight, searchPluginKey } from '../utils/searchExtension'
+import { saveImage, isWeb } from '../api'
+
+function todayStr() {
+  const d = new Date()
+  const days = ['일','월','화','수','목','금','토']
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}(${days[d.getDay()]})`
+}
+
+function nowStr() {
+  const d = new Date()
+  return `${todayStr()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+function meetingTemplate() {
+  return `회의명: \n프로젝트: \n참석자: \n회의일시: ${nowStr()}\n\n---\n\n`
+}
+
+const SNIPPETS = [
+  { trigger: '/오늘', replace: () => todayStr() },
+  { trigger: '/회의', replace: () => meetingTemplate() },
+]
 
 function countWords(text) {
   return text.trim() ? text.trim().split(/\s+/).length : 0
@@ -31,11 +54,12 @@ function extractHeadings(editor) {
 }
 
 const Editor = forwardRef(function Editor(
-  { initialContent, onContentChange, onHeadingsChange, onSave },
+  { initialContent, onContentChange, onHeadingsChange, onSave, currentFilePath },
   ref
 ) {
   const isSettingContent = useRef(false)
   const headingDebounceRef = useRef(null)
+  const snippetGuardRef = useRef(false)
   const [editMode, setEditMode] = useState('wysiwyg') // 'wysiwyg' | 'raw'
   const [rawContent, setRawContent] = useState('')
   const [copied, setCopied] = useState(false)
@@ -52,9 +76,91 @@ const Editor = forwardRef(function Editor(
   const [rawMatchIdx, setRawMatchIdx] = useState(0)
   const textareaRef = useRef(null)
 
+  // ── Image paste handler ─────────────────────────────────
+  const currentFilePathRef = useRef(currentFilePath)
+  useEffect(() => { currentFilePathRef.current = currentFilePath }, [currentFilePath])
+
+  const editorRef2 = useRef(null)
+  const editModeRef = useRef(editMode)
+  useEffect(() => { editModeRef.current = editMode }, [editMode])
+
+  // ── Image path conversion helpers ──────────────────────────
+  // Markdown에 저장된 상대 경로 → 에디터 표시용 local-image:// 절대 경로
+  const toAbsImagePaths = useCallback((md) => {
+    const fp = currentFilePathRef.current
+    if (!fp || !md) return md
+    const dir = fp.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
+    return md.replace(
+      /!\[([^\]]*)\]\(\.\//g,
+      (match, alt) => `![${alt}](local-image://img/${dir}/`
+    )
+  }, [])
+
+  // 에디터 내부의 local-image:// 절대 경로 → 마크다운 저장용 상대 경로
+  const toRelImagePaths = useCallback((md) => {
+    const fp = currentFilePathRef.current
+    if (!fp || !md) return md
+    const dir = fp.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
+    const escaped = dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return md.replace(
+      new RegExp(`!\\[([^\\]]*)\\]\\(local-image://img/${escaped}/`, 'g'),
+      (match, alt) => `![${alt}](./`
+    )
+  }, [])
+
+  const handleImagePaste = useCallback(async (files) => {
+    try {
+      if (isWeb) return
+      const filePath = currentFilePathRef.current
+      if (!filePath) {
+        alert('이미지를 붙여넣으려면 먼저 파일을 저장해주세요.')
+        return
+      }
+      const baseName = filePath.replace(/\\/g, '/').split('/').pop().replace(/\.[^.]+$/, '')
+      const assetsDir = filePath.replace(/\\/g, '/').replace(/\/[^/]+$/, '') + '/' + baseName + '.assets'
+
+      for (const file of files) {
+        const ts = new Date()
+        const stamp = `${ts.getFullYear()}${String(ts.getMonth()+1).padStart(2,'0')}${String(ts.getDate()).padStart(2,'0')}_${String(ts.getHours()).padStart(2,'0')}${String(ts.getMinutes()).padStart(2,'0')}${String(ts.getSeconds()).padStart(2,'0')}`
+        const ext = file.type.split('/')[1] === 'jpeg' ? 'jpg' : (file.type.split('/')[1] || 'png')
+        const imgName = `image_${stamp}.${ext}`
+
+        const buf = await file.arrayBuffer()
+        // Chunked base64 encoding to avoid stack overflow on large images
+        const bytes = new Uint8Array(buf)
+        let binary = ''
+        const chunk = 8192
+        for (let i = 0; i < bytes.length; i += chunk) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk))
+        }
+        const b64 = btoa(binary)
+        await saveImage(assetsDir, imgName, b64)
+
+        const relPath = `./${baseName}.assets/${imgName}`
+        if (editModeRef.current === 'wysiwyg' && editorRef2.current) {
+          const absPath = `local-image://img/${assetsDir}/${imgName}`
+          editorRef2.current.chain().focus().setImage({ src: absPath, alt: 'image' }).run()
+        } else {
+          const insert = `![image](${relPath})`
+          setRawContent(prev => {
+            const ta = textareaRef.current
+            const pos = ta?.selectionStart ?? prev.length
+            const newContent = prev.slice(0, pos) + insert + prev.slice(pos)
+            onContentChange(newContent, countWords(newContent))
+            return newContent
+          })
+        }
+      }
+    } catch (err) {
+      console.error('Image paste error:', err)
+      alert(`이미지 붙여넣기 실패: ${err.message}`)
+    }
+  }, [onContentChange])
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ codeBlock: { languageClassPrefix: 'language-' } }),
+      Image.configure({ inline: false, allowBase64: false }),
       Table.configure({ resizable: true, HTMLAttributes: { class: 'md-table' } }),
       TableRow,
       TableHeader,
@@ -69,9 +175,56 @@ const Editor = forwardRef(function Editor(
       SearchHighlight,
     ],
     content: '',
+    editorProps: {
+      handlePaste: (view, event) => {
+        const items = Array.from(event.clipboardData?.items || [])
+        const imageItems = items.filter(i => i.type.startsWith('image/'))
+        if (imageItems.length > 0) {
+          event.preventDefault()
+          const files = imageItems.map(i => i.getAsFile()).filter(Boolean)
+          if (files.length) handleImagePaste(files)
+          return true
+        }
+        return false
+      },
+      handleDrop: (view, event) => {
+        const files = Array.from(event.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'))
+        if (files.length > 0) {
+          event.preventDefault()
+          handleImagePaste(files)
+          return true
+        }
+        return false
+      },
+    },
     onUpdate: ({ editor }) => {
       if (isSettingContent.current) return
-      const markdown = editor.storage.markdown.getMarkdown()
+      if (snippetGuardRef.current) { snippetGuardRef.current = false; return }
+
+      // ── Snippet detection (non-IME input only) ──
+      if (!editor.view.composing) {
+        const { $from } = editor.state.selection
+        if ($from.parentOffset > 0) {
+          const textBefore = $from.parent.textBetween(
+            Math.max(0, $from.parentOffset - 10), $from.parentOffset
+          )
+          for (const s of SNIPPETS) {
+            if (textBefore.endsWith(s.trigger)) {
+              snippetGuardRef.current = true
+              const from = $from.pos - s.trigger.length
+              const to = $from.pos
+              const text = s.replace()
+              setTimeout(() => {
+                editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, text).run()
+              }, 0)
+              return
+            }
+          }
+        }
+      }
+
+      const rawMd = editor.storage.markdown.getMarkdown()
+      const markdown = toRelImagePaths(rawMd)
       onContentChange(markdown, countWords(editor.getText()))
       // Debounce heading extraction — no need to traverse the full doc on every keystroke
       clearTimeout(headingDebounceRef.current)
@@ -80,6 +233,36 @@ const Editor = forwardRef(function Editor(
       }, 300)
     },
   })
+
+  // Sync editor ref for image paste handler (avoids circular dependency)
+  useEffect(() => { editorRef2.current = editor }, [editor])
+
+  // ── Snippet detection for Korean IME (compositionend) ──────
+  useEffect(() => {
+    if (!editor) return
+    const dom = editor.view.dom
+    const onCompositionEnd = () => {
+      queueMicrotask(() => {
+        if (snippetGuardRef.current) return
+        const { $from } = editor.state.selection
+        if ($from.parentOffset <= 0) return
+        const textBefore = $from.parent.textBetween(
+          Math.max(0, $from.parentOffset - 10), $from.parentOffset
+        )
+        for (const s of SNIPPETS) {
+          if (textBefore.endsWith(s.trigger)) {
+            snippetGuardRef.current = true
+            const from = $from.pos - s.trigger.length
+            const to = $from.pos
+            editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, s.replace()).run()
+            return
+          }
+        }
+      })
+    }
+    dom.addEventListener('compositionend', onCompositionEnd)
+    return () => dom.removeEventListener('compositionend', onCompositionEnd)
+  }, [editor])
 
   useImperativeHandle(ref, () => ({
     scrollToPos: (pos) => {
@@ -106,7 +289,7 @@ const Editor = forwardRef(function Editor(
   useEffect(() => {
     if (!editor) return
     isSettingContent.current = true
-    editor.commands.setContent(initialContent || '')
+    editor.commands.setContent(toAbsImagePaths(initialContent || ''))
     const t = setTimeout(() => {
       isSettingContent.current = false
       onHeadingsChange?.(extractHeadings(editor))
@@ -240,7 +423,28 @@ const Editor = forwardRef(function Editor(
   }, [editMode, editor, rawContent])
 
   const handleRawChange = useCallback((e) => {
-    const val = e.target.value
+    let val = e.target.value
+    const ta = e.target
+    const pos = ta.selectionStart
+    const before = val.slice(0, pos)
+    // 스니펫 치환: /오늘, /회의
+    const snippets = [
+      { trigger: '/오늘', len: 3, replace: todayStr },
+      { trigger: '/회의', len: 3, replace: meetingTemplate },
+    ]
+    for (const s of snippets) {
+      if (before.endsWith(s.trigger)) {
+        const text = s.replace()
+        val = before.slice(0, -s.len) + text + val.slice(pos)
+        setRawContent(val)
+        onContentChange(val, countWords(val))
+        requestAnimationFrame(() => {
+          const newPos = pos - s.len + text.length
+          ta.setSelectionRange(newPos, newPos)
+        })
+        return
+      }
+    }
     setRawContent(val)
     onContentChange(val, countWords(val))
   }, [onContentChange])
@@ -311,13 +515,24 @@ const Editor = forwardRef(function Editor(
   const handleKeyDown = useCallback((e) => {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 's') {
       e.preventDefault()
-      onSave()
+      onSave(undefined, { isManual: true })
     }
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
       e.preventDefault()
       setSearchOpen(true)
     }
   }, [onSave])
+
+  // ── Raw textarea image paste ─────────────────────────────
+  const handleRawPaste = useCallback((e) => {
+    const items = Array.from(e.clipboardData?.items || [])
+    const imageItems = items.filter(i => i.type.startsWith('image/'))
+    if (imageItems.length > 0) {
+      e.preventDefault()
+      const files = imageItems.map(i => i.getAsFile()).filter(Boolean)
+      if (files.length) handleImagePaste(files)
+    }
+  }, [handleImagePaste])
 
   if (!editor) return null
 
@@ -400,17 +615,13 @@ const Editor = forwardRef(function Editor(
             )}
           </button>
           <button
-            className="normalize-btn"
+            className="normalize-btn normalize-btn-icon"
             onClick={handleNormalize}
-            title="파일 내 HTML 테이블을 Markdown 표로 일괄 변환"
+            title="MD 오류 수정"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="17 1 21 5 17 9"/>
-              <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-              <polyline points="7 23 3 19 7 15"/>
-              <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
             </svg>
-            HTML → MD
           </button>
         </div>
       </div>
@@ -433,6 +644,7 @@ const Editor = forwardRef(function Editor(
             value={rawContent}
             onChange={handleRawChange}
             onKeyDown={handleKeyDown}
+            onPaste={handleRawPaste}
             spellCheck={false}
             autoFocus
           />

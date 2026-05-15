@@ -105,6 +105,10 @@ function makeElectronAPI() {
     openFolder:       ()           => api.openFolder(),
     saveDialog:       defaultPath  => api.saveDialog(defaultPath),
     revealInExplorer: path         => api.revealInExplorer(path),
+    createFolder:     dirPath      => wrap(api.createFolder(dirPath)),
+    renameFile:       (o, n)       => wrap(api.renameFile(o, n)),
+    saveImage:        (dir, name, b64) => wrap(api.saveImage(dir, name, b64)),
+    cleanupImages:    (dir, refs)  => wrap(api.cleanupImages(dir, refs)),
   }
 }
 
@@ -163,6 +167,20 @@ function makeWebAPI() {
         return null
       }
     },
+
+    createFolder: async () => {
+      throw new Error('웹 환경에서는 폴더 생성을 지원하지 않습니다')
+    },
+
+    renameFile: async () => {
+      throw new Error('웹 환경에서는 파일 이름 변경을 지원하지 않습니다')
+    },
+
+    saveImage: async () => {
+      throw new Error('웹 환경에서는 이미지 저장을 지원하지 않습니다')
+    },
+
+    cleanupImages: async () => ({ deleted: [] }),
   }
 }
 
@@ -176,6 +194,10 @@ export const checkExists      = impl.checkExists
 export const openFolder       = impl.openFolder
 export const saveDialog       = impl.saveDialog
 export const revealInExplorer = impl.revealInExplorer
+export const createFolder     = impl.createFolder
+export const renameFile       = impl.renameFile
+export const saveImage        = impl.saveImage
+export const cleanupImages    = impl.cleanupImages
 
 // Web only: register a file handle after user picks a file
 export function registerFileHandle(path, handle) { regFile(path, handle) }

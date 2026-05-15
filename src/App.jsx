@@ -6,7 +6,7 @@ import HtmlEditor from './components/HtmlEditor'
 import MarkdownPreview from './components/MarkdownPreview'
 import SaveAsModal from './components/SaveAsModal'
 import StatusBar from './components/StatusBar'
-import { readFile, writeFile, saveDialog, pickAndReadFile, isWeb } from './api'
+import { readFile, writeFile, saveDialog, pickAndReadFile, isWeb, cleanupImages } from './api'
 
 export default function App() {
   const [rootDir, setRootDir] = useState('')
@@ -30,6 +30,18 @@ export default function App() {
     }
     catch { return [] }
   })
+
+  const [projects, setProjects] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('md-viewer-notebooks') || '[]')
+    }
+    catch { return [] }
+  })
+
+  const handleProjectsChange = useCallback((updated) => {
+    setProjects(updated)
+    localStorage.setItem('md-viewer-notebooks', JSON.stringify(updated))
+  }, [])
 
   const isHtml = currentFile?.name.endsWith('.html') || currentFile?.name.endsWith('.htm')
 
@@ -111,6 +123,22 @@ export default function App() {
     })
   }, [])
 
+  const handleFileRenamed = useCallback((oldPath, newPath, newName) => {
+    // 현재 열린 파일이면 경로 갱신
+    if (currentFileRef.current?.path === oldPath) {
+      setCurrentFile({ path: newPath, name: newName })
+      document.title = `${newName} — Hello MD Editor`
+    }
+    // 최근 문서 목록에서도 경로 갱신
+    setRecentFiles(prev => {
+      const updated = prev.map(f =>
+        f.path === oldPath ? { ...f, path: newPath, name: newName } : f
+      )
+      localStorage.setItem('md-viewer-recent', JSON.stringify(updated))
+      return updated
+    })
+  }, [])
+
   const removeFromRecent = useCallback((path) => {
     setRecentFiles(prev => {
       const updated = prev.filter(f => f.path !== path)
@@ -119,8 +147,23 @@ export default function App() {
     })
   }, [])
 
+  // ── Image cleanup helper ────────────────────────────────
+  const runImageCleanup = useCallback(async (filePath, markdown) => {
+    if (!filePath) return
+    const baseName = filePath.replace(/\\/g, '/').split('/').pop().replace(/\.[^.]+$/, '')
+    const assetsDir = filePath.replace(/\\/g, '/').replace(/\/[^/]+$/, '') + '/' + baseName + '.assets'
+    // Extract all referenced image filenames from markdown
+    const imgRegex = /!\[.*?\]\(\.\/(.*?\.assets\/([^)]+))\)/g
+    const referenced = []
+    let m
+    while ((m = imgRegex.exec(markdown)) !== null) {
+      if (m[1].startsWith(baseName + '.assets/')) referenced.push(m[2])
+    }
+    try { await cleanupImages(assetsDir, referenced) } catch { /* ignore */ }
+  }, [])
+
   // ── Save ───────────────────────────────────────────────────
-  const handleSave = useCallback(async (overridePath) => {
+  const handleSave = useCallback(async (overridePath, { isManual = false } = {}) => {
     const file = currentFileRef.current
     let savePath = overridePath || file?.path
     if (!savePath) {
@@ -133,6 +176,9 @@ export default function App() {
       setSaveStatus('saving')
       await writeFile(savePath, contentRef.current)
       setSaveStatus('saved')
+
+      // Manual save → clean up orphan images
+      if (isManual) await runImageCleanup(savePath, contentRef.current)
 
       if (savePath !== file?.path) {
         const name = savePath.replace(/\\/g, '/').split('/').pop()
@@ -163,6 +209,11 @@ export default function App() {
         if (confirmed) await handleSave()
         // 취소(false)면 변경사항 버리고 전환
       }
+    }
+
+    // 파일 전환 시 이전 파일의 고아 이미지 정리
+    if (currentFileRef.current?.path) {
+      await runImageCleanup(currentFileRef.current.path, contentRef.current)
     }
 
     try {
@@ -255,7 +306,7 @@ export default function App() {
       if (e.key === 's') {
         e.preventDefault()
         if (e.shiftKey) handleSaveAs()
-        else handleSave()
+        else handleSave(undefined, { isManual: true })
       }
       if (e.key === 'f') {
         e.preventDefault()
@@ -381,9 +432,12 @@ export default function App() {
               onRootDirChange={setRootDir}
               currentFile={currentFile}
               onFileSelect={handleFileSelect}
+              onFileRenamed={handleFileRenamed}
               saveStatus={saveStatus}
               recentFiles={recentFiles}
               onRemoveRecent={removeFromRecent}
+              projects={projects}
+              onProjectsChange={handleProjectsChange}
             />
           </div>
 
@@ -441,6 +495,7 @@ export default function App() {
                   onContentChange={handleContentChange}
                   onHeadingsChange={setHeadings}
                   onSave={handleSave}
+                  currentFilePath={currentFile.path}
                 />
               )
             ) : (

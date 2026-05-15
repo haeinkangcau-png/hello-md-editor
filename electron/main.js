@@ -1,6 +1,12 @@
-const { app, BrowserWindow, ipcMain, dialog, clipboard, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, clipboard, shell, protocol, net } = require('electron')
 const fs = require('fs')
 const path = require('path')
+const { pathToFileURL } = require('url')
+
+// Register custom protocol for local image access
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'local-image', privileges: { bypassCSP: true, stream: true, supportFetchAPI: true, standard: true, secure: true } }
+])
 
 // Use NODE_ENV (set by cross-env in dev script) rather than app.isPackaged,
 // because isPackaged is not reliable at module-evaluation time.
@@ -50,7 +56,24 @@ function createWindow() {
   })
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  // Register protocol handler for local images
+  // URL format: local-image://img/E:/path/to/file.png (dummy host 'img')
+  protocol.handle('local-image', (request) => {
+    const parsed = new URL(request.url)
+    let filePath = decodeURIComponent(parsed.pathname)
+    // Windows: remove leading slash from /E:/...
+    if (process.platform === 'win32' && filePath.match(/^\/[A-Za-z]:/)) filePath = filePath.slice(1)
+    if (!fs.existsSync(filePath)) {
+      return new Response('Not found', { status: 404 })
+    }
+    const data = fs.readFileSync(filePath)
+    const ext = path.extname(filePath).toLowerCase()
+    const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp', '.svg': 'image/svg+xml' }
+    return new Response(data, { headers: { 'Content-Type': mime[ext] || 'application/octet-stream' } })
+  })
+  createWindow()
+})
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 
@@ -62,6 +85,8 @@ function readDir(dirPath) {
       try {
         const stat = fs.statSync(full)
         const isDir = stat.isDirectory()
+        // Hide .assets image folders and non-md/html files
+        if (isDir && name.endsWith('.assets')) return null
         if (!isDir && !name.endsWith('.md') && !name.endsWith('.html')) return null
         return { name, path: full, isDirectory: isDir }
       } catch { return null }
@@ -198,4 +223,50 @@ ipcMain.handle('save-dialog', async (_, defaultPath) => {
     filters: [{ name: 'Markdown', extensions: ['md'] }],
   })
   return result.canceled ? null : result.filePath
+})
+
+ipcMain.handle('create-folder', (_, dirPath) => {
+  const resolved = path.resolve(dirPath)
+  if (!fs.existsSync(resolved)) {
+    fs.mkdirSync(resolved, { recursive: true })
+  }
+  return { success: true, path: resolved }
+})
+
+ipcMain.handle('rename-file', (_, oldPath, newPath) => {
+  const resolvedOld = path.resolve(oldPath)
+  const resolvedNew = path.resolve(newPath)
+  if (!fs.existsSync(resolvedOld)) throw new Error('파일을 찾을 수 없습니다')
+  if (fs.existsSync(resolvedNew)) throw new Error('같은 이름의 파일이 이미 존재합니다')
+  fs.renameSync(resolvedOld, resolvedNew)
+  return { success: true, oldPath: resolvedOld, newPath: resolvedNew }
+})
+
+ipcMain.handle('save-image', (_, dirPath, fileName, base64Data) => {
+  const resolved = path.resolve(dirPath)
+  if (!fs.existsSync(resolved)) fs.mkdirSync(resolved, { recursive: true })
+  const filePath = path.join(resolved, fileName)
+  const buffer = Buffer.from(base64Data, 'base64')
+  fs.writeFileSync(filePath, buffer)
+  return { success: true, path: filePath }
+})
+
+ipcMain.handle('cleanup-images', (_, assetsDir, referencedImages) => {
+  const resolved = path.resolve(assetsDir)
+  if (!fs.existsSync(resolved)) return { deleted: [] }
+  const allFiles = fs.readdirSync(resolved)
+  const imageExts = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
+  const refSet = new Set(referencedImages)
+  const deleted = []
+  for (const file of allFiles) {
+    const ext = path.extname(file).toLowerCase()
+    if (imageExts.has(ext) && !refSet.has(file)) {
+      fs.unlinkSync(path.join(resolved, file))
+      deleted.push(file)
+    }
+  }
+  // 폴더가 비었으면 폴더도 삭제
+  const remaining = fs.readdirSync(resolved)
+  if (remaining.length === 0) fs.rmdirSync(resolved)
+  return { deleted }
 })
