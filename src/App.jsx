@@ -4,6 +4,7 @@ import TocPanel from './components/TocPanel'
 import Editor from './components/Editor'
 import HtmlEditor from './components/HtmlEditor'
 import MarkdownPreview from './components/MarkdownPreview'
+import ViewMode from './components/ViewMode'
 import SaveAsModal from './components/SaveAsModal'
 import StatusBar from './components/StatusBar'
 import { readFile, writeFile, saveDialog, pickAndReadFile, isWeb, cleanupImages } from './api'
@@ -398,11 +399,11 @@ export default function App() {
             className={`btn btn-view ${showPreview ? 'active' : ''}`}
             onClick={() => setShowPreview(v => !v)}
             disabled={!currentFile || isHtml}
-            title="미리보기 분할 (View)"
+            title="뷰 모드 (목차 + 미리보기)"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <line x1="12" y1="3" x2="12" y2="21"/>
+              <line x1="9" y1="3" x2="9" y2="21"/>
             </svg>
             View
           </button>
@@ -420,7 +421,12 @@ export default function App() {
 
       {/* ── Body ── */}
       <div className="app-body">
-        <aside className="sidebar" ref={sidebarRef}>
+        {/* ── View Mode (TOC + Preview) ── */}
+        {showPreview && currentFile && !isHtml && (
+          <ViewMode headings={headings} content={fileContent} />
+        )}
+
+        <aside className="sidebar" ref={sidebarRef} style={{ display: showPreview && currentFile && !isHtml ? 'none' : undefined }}>
           {/* File tree pane */}
           <div
             className="sidebar-pane"
@@ -456,7 +462,7 @@ export default function App() {
           )}
         </aside>
 
-        <main className="editor-area" ref={mainRef}>
+        <main className="editor-area" ref={mainRef} style={{ display: showPreview && currentFile && !isHtml ? 'none' : undefined }}>
           {/* Drag overlay */}
           {isDragOver && (
             <div className="drag-overlay">
@@ -473,7 +479,6 @@ export default function App() {
           {/* Editor panel */}
           <div
             className="editor-panel"
-            style={showPreview && currentFile && !isHtml ? { width: `${previewSplit}%` } : {}}
           >
             {fileLoading ? (
               <div className="loading">
@@ -541,20 +546,6 @@ export default function App() {
               </div>
             )}
           </div>
-
-          {/* Preview split */}
-          {showPreview && currentFile && !isHtml && (
-            <>
-              <div
-                className="preview-divider"
-                onMouseDown={handlePreviewDividerMouseDown}
-                title="드래그하여 크기 조절"
-              />
-              <div className="preview-panel" style={{ width: `${100 - previewSplit}%` }}>
-                <MarkdownPreview content={fileContent} />
-              </div>
-            </>
-          )}
         </main>
       </div>
 

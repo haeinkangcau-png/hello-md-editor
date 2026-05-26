@@ -1,6 +1,17 @@
 // Ported from D:/hi workspace/UXspecviewer/innk_manager_UXspec_standalone.html
 // Functions: mdInline, parseHtmlTable, parseTblLines, mdBlock
 
+/** Derive a stable anchor ID from heading text (shared with ViewMode) */
+export function makeHeadingId(text) {
+  const slug = text
+    .replace(/[`*_~[\]()#!]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w가-힣\-]/g, '')
+  return `hd-${slug || 'heading'}`
+}
+
 export function mdInline(s) {
   if (!s) return ''
   return s
@@ -12,6 +23,30 @@ export function mdInline(s) {
     .replace(/\*([^*\s][^*]*?)\*/g, '<em>$1</em>')
     .replace(/`([^`]+)`/g, '<code class="dp-code">$1</code>')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="dp-link">$1</a>')
+    .replace(/\[확인\s*필요\]/g, '<span class="dp-badge dp-badge-warn">확인 필요</span>')
+    .replace(/\[검토\s*필요\]/g, '<span class="dp-badge dp-badge-review">검토 필요</span>')
+}
+
+/** Parse # 99. 링크관리 section into a registry map { [normalizedName]: { rev, type, url } } */
+export function parseLinkReg(markdown) {
+  if (!markdown) return {}
+  const lines = markdown.split('\n')
+  let inSection = false
+  const reg = {}
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i].trim()
+    if (/^#\s+99\./.test(l)) { inSection = true; continue }
+    if (inSection && /^#\s/.test(l)) break
+    if (!inSection) continue
+    if (l.startsWith('|') && !/^[\s|\-:]+$/.test(l)) {
+      const cells = l.split('|').slice(1, -1).map(c => c.trim())
+      if (cells.length >= 4 && cells[0] && cells[0] !== '파일명') {
+        const key = cells[0].replace(/\s/g, '')
+        reg[key] = { rev: cells[1], type: cells[2], url: cells[3] }
+      }
+    }
+  }
+  return reg
 }
 
 export function parseHtmlTable(html) {
@@ -80,10 +115,17 @@ export function normalizeHtmlTables(markdown) {
   })
 }
 
-export function mdBlock(md) {
+const LINK_TYPE_CLASS = { 'Excel link': 'lc-excel', 'Figma link': 'lc-figma', 'Loop link': 'lc-loop' }
+const renderTd = c => {
+  if (c === '미정의') return `<td><span class="dp-undef">미정의</span></td>`
+  if (c === '—' || c === '-') return `<td class="dp-tbl-empty">${c}</td>`
+  return `<td>${mdInline(c)}</td>`
+}
+
+export function mdBlock(md, linkReg) {
   if (!md) return ''
   const lines = md.split('\n')
-  let html = '', i = 0
+  let html = '', i = 0, _hIdx = 0
   while (i < lines.length) {
     const l = lines[i].trimEnd()
     const tr = l.trim()
@@ -100,7 +142,7 @@ export function mdBlock(md) {
       const t = parseHtmlTable(tableHtml)
       if (t && (t.h.length || t.r.length)) {
         const hdrs = t.h.map(h => `<th>${mdInline(h)}</th>`).join('')
-        const rows = t.r.map(row => `<tr>${row.map(c => `<td>${mdInline(c)}</td>`).join('')}</tr>`).join('')
+        const rows = t.r.map(row => `<tr>${row.map(renderTd).join('')}</tr>`).join('')
         html += `<div class="dp-block"><table class="dp-tbl"><thead><tr>${hdrs}</tr></thead><tbody>${rows}</tbody></table></div>`
       }
       continue
@@ -118,12 +160,27 @@ export function mdBlock(md) {
       continue
     }
 
+    // @@파일명 link card
+    if (/^@@\S/.test(tr)) {
+      const fname = tr.slice(2).trim()
+      const key = fname.replace(/\s/g, '')
+      const entry = linkReg && (linkReg[key] || linkReg[key.replace(/\s/g,'')])
+      const url = entry?.url || ''
+      const type = entry?.type || ''
+      const cls = LINK_TYPE_CLASS[type] || 'lc-default'
+      const card = url
+        ? `<a href="${url}" target="_blank" rel="noopener" class="dp-linkcard ${cls}"><span class="dp-linkcard-icon">📎</span><span class="dp-linkcard-name">${fname}</span><span class="dp-linkcard-badge">${type || '링크'}</span></a>`
+        : `<div class="dp-linkcard dp-linkcard-nourl"><span class="dp-linkcard-icon">📎</span><span class="dp-linkcard-name">${fname}</span><span class="dp-linkcard-badge lc-nourl">URL 미등록</span></div>`
+      html += `<div class="dp-block">${card}</div>`
+      i++; continue
+    }
+
     // Horizontal rule
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(tr)) { html += `<hr class="dp-hr">`; i++; continue }
 
     // Headings
     const hm = tr.match(/^(#{1,6})\s+(.+)/)
-    if (hm) { html += `<div class="dp-h${hm[1].length}">${mdInline(hm[2])}</div>`; i++; continue }
+    if (hm) { html += `<div class="dp-h${hm[1].length}" id="${makeHeadingId(hm[2])}" data-hidx="${_hIdx++}">${mdInline(hm[2])}</div>`; i++; continue }
 
     // Markdown table
     if (tr.startsWith('|') && i + 1 < lines.length && /^\|[\s\-:|]+\|/.test(lines[i + 1].trim())) {
@@ -132,7 +189,7 @@ export function mdBlock(md) {
       const t = parseTblLines(tblLines)
       if (t) {
         const hdrs = t.h.map(h => `<th>${mdInline(h)}</th>`).join('')
-        const rows = t.r.map(row => `<tr>${row.map(c => `<td>${mdInline(c)}</td>`).join('')}</tr>`).join('')
+        const rows = t.r.map(row => `<tr>${row.map(renderTd).join('')}</tr>`).join('')
         html += `<div class="dp-block"><table class="dp-tbl"><thead><tr>${hdrs}</tr></thead><tbody>${rows}</tbody></table></div>`
       }
       continue
@@ -155,7 +212,7 @@ export function mdBlock(md) {
     if (/^>/.test(l)) {
       const bqLines = []
       while (i < lines.length && /^>/.test(lines[i])) { bqLines.push(lines[i].replace(/^>\s?/, '')); i++ }
-      html += `<div class="dp-quote">${mdBlock(bqLines.join('\n'))}</div>`
+      html += `<div class="dp-quote">${mdBlock(bqLines.join('\n'), linkReg)}</div>`
       continue
     }
 
