@@ -643,12 +643,17 @@ html, body, #root {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0;
+  padding: 40px 24px;
 }
-.welcome-content { text-align: center; }
+.welcome-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 .welcome-icon {
   color: var(--color-border);
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   display: flex;
   justify-content: center;
 }
@@ -656,19 +661,27 @@ html, body, #root {
   font-size: 22px;
   font-weight: 600;
   color: var(--color-text);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .welcome p {
   color: var(--color-text-muted);
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  line-height: 1.6;
 }
 .welcome-shortcuts {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 6px 10px;
   color: var(--color-text-muted);
   font-size: 13px;
+  margin-top: 20px;
+  max-width: 480px;
+}
+.welcome-shortcuts-sep {
+  color: var(--color-border);
+  user-select: none;
 }
 kbd {
   padding: 2px 6px;

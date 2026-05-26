@@ -128,7 +128,7 @@ export default function App() {
     // 현재 열린 파일이면 경로 갱신
     if (currentFileRef.current?.path === oldPath) {
       setCurrentFile({ path: newPath, name: newName })
-      document.title = `${newName} — Hello MD Editor`
+      document.title = `${newName} — Hi MD Editor`
     }
     // 최근 문서 목록에서도 경로 갱신
     setRecentFiles(prev => {
@@ -186,7 +186,7 @@ export default function App() {
         const updated = { path: savePath, name }
         setCurrentFile(updated)
         addToRecent(updated)
-        document.title = `${name} — Hello MD Editor`
+        document.title = `${name} — Hi MD Editor`
       }
     } catch (err) {
       setSaveStatus('error')
@@ -224,7 +224,7 @@ export default function App() {
       setCurrentFile(file)
       setFileContent(content)
       setSaveStatus('saved')
-      document.title = `${file.name} — Hello MD Editor`
+      document.title = `${file.name} — Hi MD Editor`
       addToRecent({ path: file.path, name: file.name })
     } catch (err) {
       alert(`파일을 열 수 없습니다: ${err.message}`)
@@ -259,7 +259,7 @@ export default function App() {
     setFileContent('')
     setSaveStatus('saved')
     setHeadings([])
-    document.title = 'Untitled.md — Hello MD Editor'
+    document.title = 'Untitled.md — Hi MD Editor'
   }, [saveStatus, autoSave, handleSave])
 
   // ── Content change from editor ─────────────────────────────
@@ -378,7 +378,7 @@ export default function App() {
             <path d="M180 248 Q256 316 332 248" stroke="#2E4A2E" strokeWidth="22" strokeLinecap="round" fill="none"/>
             <text x="240" y="430" fontSize="108" fontWeight="800" fontFamily="'Helvetica Neue',Arial,sans-serif" textAnchor="middle" fill="#2E4A2E">md</text>
           </svg>
-          Hello MD Editor
+          Hi MD Editor
         </div>
 
         <div className="header-actions">
@@ -517,7 +517,7 @@ export default function App() {
                     <text x="240" y="430" fontSize="108" fontWeight="800" fontFamily="'Helvetica Neue',Arial,sans-serif" textAnchor="middle" fill="#2E4A2E">md</text>
                   </svg>
                 </div>
-                <h2>Hello MD Editor</h2>
+                <h2>Hi MD Editor</h2>
                 <p>왼쪽에서 폴더를 열거나<br/>.md · .html 파일을 여기로 드래그하세요.</p>
                 {isWeb && (
                   <button
@@ -530,7 +530,7 @@ export default function App() {
                         setCurrentFile(file)
                         setFileContent(result.content)
                         setSaveStatus('saved')
-                        document.title = `${result.name} — Hello MD Editor`
+                        document.title = `${result.name} — Hi MD Editor`
                         addToRecent(file)
                       }
                     }}
@@ -539,9 +539,11 @@ export default function App() {
                   </button>
                 )}
                 <div className="welcome-shortcuts">
-                  <kbd>Ctrl+N</kbd> 새 파일 &nbsp;
-                  <kbd>Ctrl+S</kbd> 저장 &nbsp;
-                  <kbd>Ctrl+Shift+S</kbd> 다른 이름으로 저장
+                  <span><kbd>Ctrl+N</kbd> 새 파일</span>
+                  <span className="welcome-shortcuts-sep">·</span>
+                  <span><kbd>Ctrl+S</kbd> 저장</span>
+                  <span className="welcome-shortcuts-sep">·</span>
+                  <span><kbd>Ctrl+Shift+S</kbd> 다른 이름으로 저장</span>
                 </div>
               </div>
             )}
