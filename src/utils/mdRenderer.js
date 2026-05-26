@@ -22,7 +22,7 @@ export function mdInline(s) {
     .replace(/~~(.+?)~~/g, '<del>$1</del>')
     .replace(/\*([^*\s][^*]*?)\*/g, '<em>$1</em>')
     .replace(/`([^`]+)`/g, '<code class="dp-code">$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="dp-link">$1</a>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" title="$2" target="_blank" rel="noopener" class="dp-link">$1</a>')
     .replace(/\[확인\s*필요\]/g, '<span class="dp-badge dp-badge-warn">확인 필요</span>')
     .replace(/\[검토\s*필요\]/g, '<span class="dp-badge dp-badge-review">검토 필요</span>')
 }

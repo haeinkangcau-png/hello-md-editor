@@ -6,6 +6,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Extension } from '@tiptap/core'
 import Image from '@tiptap/extension-image'
+import Link from '@tiptap/extension-link'
 import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableHeader from '@tiptap/extension-table-header'
@@ -161,6 +162,7 @@ const Editor = forwardRef(function Editor(
     extensions: [
       StarterKit.configure({ codeBlock: { languageClassPrefix: 'language-' } }),
       Image.configure({ inline: false, allowBase64: false }),
+      Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
       Table.configure({ resizable: true, HTMLAttributes: { class: 'md-table' } }),
       TableRow,
       TableHeader,
@@ -630,7 +632,15 @@ const Editor = forwardRef(function Editor(
       {editMode === 'wysiwyg' && <Toolbar editor={editor} />}
       {editMode === 'wysiwyg' && <SelectionInfo editor={editor} />}
       {editMode === 'wysiwyg' && (
-        <div className="editor-scroll">
+        <div
+          className="editor-scroll"
+          onClick={(e) => {
+            if (e.ctrlKey || e.metaKey) {
+              const a = e.target.closest('a')
+              if (a?.href) { e.preventDefault(); window.open(a.href, '_blank', 'noopener,noreferrer') }
+            }
+          }}
+        >
           <EditorContent editor={editor} className="editor-content" />
         </div>
       )}
