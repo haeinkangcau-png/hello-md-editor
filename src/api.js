@@ -80,6 +80,7 @@ async function listDirHandle(dirHandle, parentPath) {
   for await (const [name, handle] of dirHandle.entries()) {
     const path = `${parentPath}/${name}`
     if (handle.kind === 'directory') {
+      fileHandles.set(path, handle)  // register so subfolders are resolvable
       items.push({ name, path, isDirectory: true, handle })
     } else if (handle.kind === 'file' && (name.endsWith('.md') || name.endsWith('.html'))) {
       regFile(path, handle)
