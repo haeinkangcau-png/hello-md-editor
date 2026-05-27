@@ -49,7 +49,7 @@ function extractH1Intro(markdown, heading) {
   return introLines.join('\n').trim()
 }
 
-export default function ViewMode({ headings, content }) {
+export default function ViewMode({ headings, content, currentFilePath }) {
   const previewBodyRef = useRef(null)
   const tocBodyRef = useRef(null)
   const [scrollActiveIdx, setScrollActiveIdx] = useState(0)
@@ -157,6 +157,7 @@ export default function ViewMode({ headings, content }) {
           linkReg={linkReg}
           sectionTitle={selectedHeading ? selectedHeading.text : null}
           onClearSection={selectedHeading ? handleClearSection : null}
+          currentFilePath={currentFilePath}
         />
       </div>
     </div>

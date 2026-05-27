@@ -270,3 +270,21 @@ ipcMain.handle('cleanup-images', (_, assetsDir, referencedImages) => {
   if (remaining.length === 0) fs.rmdirSync(resolved)
   return { deleted }
 })
+
+ipcMain.handle('copy-assets', async (_, src, dest) => {
+  const srcResolved = path.resolve(src)
+  const destResolved = path.resolve(dest)
+  if (!fs.existsSync(srcResolved)) throw new Error('원본 폴더를 찾을 수 없습니다')
+  await fs.promises.cp(srcResolved, destResolved, { recursive: true })
+  return { success: true }
+})
+
+ipcMain.handle('read-image-base64', (_, filePath) => {
+  const resolved = path.resolve(filePath)
+  if (!fs.existsSync(resolved)) return null
+  const ext = path.extname(resolved).toLowerCase()
+  const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp', '.svg': 'image/svg+xml' }
+  const mimeType = mime[ext] || 'application/octet-stream'
+  const data = fs.readFileSync(resolved).toString('base64')
+  return `data:${mimeType};base64,${data}`
+})

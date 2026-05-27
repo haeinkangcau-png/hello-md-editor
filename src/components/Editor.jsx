@@ -18,7 +18,7 @@ import SelectionInfo from './SelectionInfo'
 import SearchBar from './SearchBar'
 import { normalizeHtmlTables } from '../utils/mdRenderer'
 import { SearchHighlight, searchPluginKey } from '../utils/searchExtension'
-import { saveImage, isWeb } from '../api'
+import { saveImage, isWeb, readImageAsBlob } from '../api'
 
 function todayStr() {
   const d = new Date()
@@ -85,6 +85,17 @@ const Editor = forwardRef(function Editor(
   const editModeRef = useRef(editMode)
   useEffect(() => { editModeRef.current = editMode }, [editMode])
 
+  // ── Blob URL tracking (web mode only) ────────────────────────
+  const blobToRelPath = useRef(new Map())  // blob URL → relative path
+
+  // Cleanup blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      for (const url of blobToRelPath.current.keys()) URL.revokeObjectURL(url)
+      blobToRelPath.current.clear()
+    }
+  }, [])
+
   // ── Image path conversion helpers ──────────────────────────
   // Markdown에 저장된 상대 경로 → 에디터 표시용 local-image:// 절대 경로
   const toAbsImagePaths = useCallback((md) => {
@@ -97,10 +108,42 @@ const Editor = forwardRef(function Editor(
     )
   }, [])
 
-  // 에디터 내부의 local-image:// 절대 경로 → 마크다운 저장용 상대 경로
-  const toRelImagePaths = useCallback((md) => {
+  // 웹 모드: ./x.assets/y.png → blob URL (비동기)
+  const resolveWebImages = useCallback(async (md) => {
     const fp = currentFilePathRef.current
     if (!fp || !md) return md
+    const dir = fp.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
+    const imgPattern = /!\[([^\]]*)\]\(\.(\/[^)]*\.(?:png|jpg|jpeg|gif|webp|svg|bmp))\)/gi
+    const matches = [...md.matchAll(imgPattern)]
+    if (!matches.length) return md
+    let result = md
+    for (const match of matches) {
+      const relPath = `.${match[2]}`
+      const absPath = `${dir}${match[2]}`
+      try {
+        const blobUrl = await readImageAsBlob(absPath)
+        if (blobUrl) {
+          blobToRelPath.current.set(blobUrl, relPath)
+          result = result.replaceAll(match[0], `![${match[1]}](${blobUrl})`)
+        }
+      } catch { /* image not found, skip */ }
+    }
+    return result
+  }, [])
+
+  // 에디터 내부의 local-image:// 절대 경로 (Electron) 또는 blob URL (웹) → 마크다운 저장용 상대 경로
+  const toRelImagePaths = useCallback((md) => {
+    if (!md) return md
+    if (isWeb) {
+      // Replace blob URLs with original relative paths
+      let result = md
+      for (const [blobUrl, relPath] of blobToRelPath.current) {
+        result = result.replaceAll(blobUrl, relPath)
+      }
+      return result
+    }
+    const fp = currentFilePathRef.current
+    if (!fp) return md
     const dir = fp.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
     const escaped = dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     return md.replace(
@@ -111,7 +154,6 @@ const Editor = forwardRef(function Editor(
 
   const handleImagePaste = useCallback(async (files) => {
     try {
-      if (isWeb) return
       const filePath = currentFilePathRef.current
       if (!filePath) {
         alert('이미지를 붙여넣으려면 먼저 파일을 저장해주세요.')
@@ -139,8 +181,20 @@ const Editor = forwardRef(function Editor(
 
         const relPath = `./${baseName}.assets/${imgName}`
         if (editModeRef.current === 'wysiwyg' && editorRef2.current) {
-          const absPath = `local-image://img/${assetsDir}/${imgName}`
-          editorRef2.current.chain().focus().setImage({ src: absPath, alt: 'image' }).run()
+          let displaySrc
+          if (isWeb) {
+            // Web: create blob URL and track for save-back conversion
+            const blobUrl = await readImageAsBlob(`${assetsDir}/${imgName}`)
+            if (blobUrl) {
+              blobToRelPath.current.set(blobUrl, relPath)
+              displaySrc = blobUrl
+            } else {
+              displaySrc = relPath
+            }
+          } else {
+            displaySrc = `local-image://img/${assetsDir}/${imgName}`
+          }
+          editorRef2.current.chain().focus().setImage({ src: displaySrc, alt: 'image' }).run()
         } else {
           const insert = `![image](${relPath})`
           setRawContent(prev => {
@@ -290,13 +344,22 @@ const Editor = forwardRef(function Editor(
   // Load initial content on mount
   useEffect(() => {
     if (!editor) return
+    let cancelled = false
     isSettingContent.current = true
-    editor.commands.setContent(toAbsImagePaths(initialContent || ''))
-    const t = setTimeout(() => {
-      isSettingContent.current = false
-      onHeadingsChange?.(extractHeadings(editor))
-    }, 60)
-    return () => clearTimeout(t)
+    const load = async () => {
+      const content = isWeb
+        ? await resolveWebImages(initialContent || '')
+        : toAbsImagePaths(initialContent || '')
+      if (cancelled) return
+      editor.commands.setContent(content)
+      setTimeout(() => {
+        if (cancelled) return
+        isSettingContent.current = false
+        onHeadingsChange?.(extractHeadings(editor))
+      }, 60)
+    }
+    load()
+    return () => { cancelled = true }
   }, [editor])
 
   const scrollToEditorSelection = useCallback(() => {

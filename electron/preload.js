@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   renameFile:        (oldPath, newPath) => ipcRenderer.invoke('rename-file', oldPath, newPath),
   saveImage:         (dir, name, b64)  => ipcRenderer.invoke('save-image', dir, name, b64),
   cleanupImages:     (dir, refs)       => ipcRenderer.invoke('cleanup-images', dir, refs),
+  copyAssets:        (src, dest)        => ipcRenderer.invoke('copy-assets', src, dest),
+  readImageBase64:   (filePath)         => ipcRenderer.invoke('read-image-base64', filePath),
   getOpenFilePath:   ()               => ipcRenderer.invoke('get-open-file-path'),
   onOpenFile:        (cb)             => {
     const handler = (_, p) => cb(p)

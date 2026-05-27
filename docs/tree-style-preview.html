@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Tree Style Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f0ede8; padding: 32px; display: flex; gap: 20px; flex-wrap: wrap; }
+  .card { background: #fff; border-radius: 12px; padding: 20px; width: 220px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .card h3 { font-size: 12px; color: #999; margin-bottom: 14px; text-transform: uppercase; letter-spacing: .05em; }
+  .tree { display: flex; flex-direction: column; gap: 1px; }
+  .node { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 5px; cursor: pointer; font-size: 12px; user-select: none; }
+  .node svg { flex-shrink: 0; }
+  .chevron { opacity: .5; }
+
+  /* ── A: Color ── */
+  .a .folder { color: #3a7040; font-weight: 600; }
+  .a .file   { color: #3d3d3a; }
+  .a .folder:hover { background: #f0faf2; }
+  .a .file:hover   { background: #f5f4f0; }
+
+  /* ── B: Background bar ── */
+  .b .folder { background: #f5f4f0; border-left: 3px solid #82c982; color: #2e4a2e; font-weight: 600; padding-left: 6px; }
+  .b .file   { color: #5f5e5a; padding-left: 11px; }
+  .b .folder:hover { background: #ece9e3; }
+  .b .file:hover   { background: #f5f4f0; }
+
+  /* ── C: Icon color ── */
+  .c .node { color: #3d3d3a; }
+  .c .folder-icon { color: #e8a020; }
+  .c .file-icon   { color: #82c982; }
+  .c .node:hover  { background: #f5f4f0; }
+
+  /* ── D: Typography ── */
+  .d .folder { font-size: 12.5px; font-weight: 600; color: #1a1a18; letter-spacing: .02em; }
+  .d .file   { font-size: 11.5px; font-weight: 400; color: #8a8a86; }
+  .d .folder:hover { background: #f5f4f0; }
+  .d .file:hover   { background: #f5f4f0; }
+
+  /* ── E: Combo (B+C+D) ── */
+  .e .folder { background: #f5f4f0; border-left: 3px solid #82c982; color: #2e4a2e; font-size: 12.5px; font-weight: 600; padding-left: 6px; letter-spacing: .02em; }
+  .e .folder .folder-icon { color: #e8a020; }
+  .e .file   { color: #6b6b68; font-size: 11.5px; padding-left: 11px; }
+  .e .file .file-icon { color: #82c982; }
+  .e .folder:hover { background: #ece9e3; }
+  .e .file:hover   { background: #f5f4f0; }
+
+  .indent { padding-left: 22px !important; }
+  .badge { font-size: 9px; background: #e8f5e9; color: #3a7040; border-radius: 3px; padding: 1px 4px; margin-left: auto; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- A -->
+<div class="card">
+  <h3>A — 색상 구분</h3>
+  <div class="tree a">
+    <div class="node folder">
+      <svg class="chevron" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      회의록
+    </div>
+    <div class="node file indent">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      2026-05-26.md
+    </div>
+    <div class="node file indent">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      기획안.md
+    </div>
+    <div class="node folder">
+      <svg class="chevron" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      개발노트
+    </div>
+  </div>
+</div>
+
+<!-- B -->
+<div class="card">
+  <h3>B — 배경 + 좌측 바</h3>
+  <div class="tree b">
+    <div class="node folder">
+      <svg class="chevron" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      회의록
+    </div>
+    <div class="node file indent">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      2026-05-26.md
+    </div>
+    <div class="node file indent">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      기획안.md
+    </div>
+    <div class="node folder">
+      <svg class="chevron" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      개발노트
+    </div>
+  </div>
+</div>
+
+<!-- C -->
+<div class="card">
+  <h3>C — 아이콘 색상</h3>
+  <div class="tree c">
+    <div class="node folder">
+      <svg class="chevron" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg class="folder-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      회의록
+    </div>
+    <div class="node file indent">
+      <svg class="file-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      2026-05-26.md
+    </div>
+    <div class="node file indent">
+      <svg class="file-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      기획안.md
+    </div>
+    <div class="node folder">
+      <svg class="chevron" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg class="folder-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      개발노트
+    </div>
+  </div>
+</div>
+
+<!-- D -->
+<div class="card">
+  <h3>D — 타이포 위계</h3>
+  <div class="tree d">
+    <div class="node folder">
+      <svg class="chevron" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      회의록
+    </div>
+    <div class="node file indent">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      2026-05-26.md
+    </div>
+    <div class="node file indent">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      기획안.md
+    </div>
+    <div class="node folder">
+      <svg class="chevron" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      개발노트
+    </div>
+  </div>
+</div>
+
+<!-- E -->
+<div class="card" style="border: 2px solid #82c982;">
+  <h3>E — 조합 추천 (B+C+D)</h3>
+  <div class="tree e">
+    <div class="node folder">
+      <svg class="chevron" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg class="folder-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      회의록
+    </div>
+    <div class="node file indent">
+      <svg class="file-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      2026-05-26.md
+    </div>
+    <div class="node file indent">
+      <svg class="file-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      기획안.md
+    </div>
+    <div class="node folder">
+      <svg class="chevron" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg class="folder-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      개발노트
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,8 +1,30 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useEffect, useRef, useCallback } from 'react'
 import { mdBlock } from '../utils/mdRenderer'
+import { isWeb, readImageAsBlob } from '../api'
 
-export default function MarkdownPreview({ content, scrollRef, linkReg, sectionTitle, onClearSection }) {
+export default function MarkdownPreview({ content, scrollRef, linkReg, sectionTitle, onClearSection, currentFilePath }) {
   const html = useMemo(() => mdBlock(content || '', linkReg), [content, linkReg])
+  const bodyRef = useRef(null)
+
+  // Web mode: replace ./relative image paths with blob URLs after render
+  useEffect(() => {
+    if (!isWeb || !currentFilePath) return
+    const el = bodyRef.current
+    if (!el) return
+    const dir = currentFilePath.replace(/[/\\][^/\\]+$/, '')
+    el.querySelectorAll('img').forEach(async (img) => {
+      const src = img.getAttribute('src')
+      if (!src?.startsWith('./')) return
+      const absPath = `${dir}/${src.slice(2)}`
+      const blobUrl = await readImageAsBlob(absPath)
+      if (blobUrl) img.src = blobUrl
+    })
+  }, [html, currentFilePath])
+
+  const setBodyRef = useCallback((el) => {
+    bodyRef.current = el
+    if (scrollRef && typeof scrollRef === 'object') scrollRef.current = el
+  }, [scrollRef])
 
   return (
     <div className="preview-pane">
@@ -20,7 +42,7 @@ export default function MarkdownPreview({ content, scrollRef, linkReg, sectionTi
           <span className="preview-title">미리보기</span>
         )}
       </div>
-      <div className="preview-body" ref={scrollRef}>
+      <div className="preview-body" ref={setBodyRef}>
         <div
           className="md-doc"
           dangerouslySetInnerHTML={{ __html: html }}

@@ -7,7 +7,8 @@ import MarkdownPreview from './components/MarkdownPreview'
 import ViewMode from './components/ViewMode'
 import SaveAsModal from './components/SaveAsModal'
 import StatusBar from './components/StatusBar'
-import { readFile, writeFile, saveDialog, pickAndReadFile, isWeb, cleanupImages } from './api'
+import { readFile, writeFile, saveDialog, pickAndReadFile, isWeb, cleanupImages, checkExists, copyAssets } from './api'
+import { exportHtml } from './utils/htmlExport'
 
 export default function App() {
   const [rootDir, setRootDir] = useState('')
@@ -235,9 +236,49 @@ export default function App() {
 
   // Native Save As dialog via Electron
   const handleSaveAs = useCallback(async () => {
-    const newPath = await saveDialog(currentFileRef.current?.path)
-    if (newPath) handleSave(newPath)
+    const currentPath = currentFileRef.current?.path
+    const newPath = await saveDialog(currentPath)
+    if (!newPath) return
+
+    // Check for .assets folder and offer to copy (Electron only, full paths available)
+    if (!isWeb && currentPath) {
+      const base = currentPath.replace(/\\/g, '/').replace(/\.[^.]+$/, '')
+      const assetsDir = `${base}.assets`
+      const hasAssets = await checkExists(assetsDir)
+      if (hasAssets) {
+        const assetsFolderName = assetsDir.split('/').pop()
+        const confirmed = window.confirm(
+          `이 파일에 이미지 폴더(${assetsFolderName})가 있습니다.\n\n새 위치에 함께 복사하시겠습니까?`
+        )
+        if (confirmed) {
+          const newBase = newPath.replace(/\\/g, '/').replace(/\.[^.]+$/, '')
+          const destAssets = `${newBase}.assets`
+          try {
+            await copyAssets(assetsDir, destAssets)
+          } catch (err) {
+            alert(`이미지 폴더 복사 실패: ${err.message}`)
+          }
+        }
+      }
+    }
+
+    handleSave(newPath)
   }, [handleSave])
+
+  // ── HTML Export ────────────────────────────────────────────
+  const handleExportHtml = useCallback(async () => {
+    if (!currentFile) return
+    try {
+      await exportHtml({
+        content: contentRef.current,
+        title: currentFile.name,
+        headings,
+        filePath: currentFile.path,
+      })
+    } catch (err) {
+      alert(`HTML 내보내기 실패: ${err.message}`)
+    }
+  }, [currentFile, headings])
 
   // ── New file ───────────────────────────────────────────────
   const handleNewFile = useCallback(async () => {
@@ -416,6 +457,9 @@ export default function App() {
           <button className="btn btn-saveas" onClick={handleSaveAs} disabled={!currentFile}>
             Save As…
           </button>
+          <button className="btn btn-saveas" onClick={handleExportHtml} disabled={!currentFile || isHtml} title="HTML 파일로 내보내기 (TOC 포함 standalone)">
+            HTML↓
+          </button>
         </div>
       </header>
 
@@ -423,7 +467,7 @@ export default function App() {
       <div className="app-body">
         {/* ── View Mode (TOC + Preview) ── */}
         {showPreview && currentFile && !isHtml && (
-          <ViewMode headings={headings} content={fileContent} />
+          <ViewMode headings={headings} content={fileContent} currentFilePath={currentFile?.path} />
         )}
 
         <aside className="sidebar" ref={sidebarRef} style={{ display: showPreview && currentFile && !isHtml ? 'none' : undefined }}>

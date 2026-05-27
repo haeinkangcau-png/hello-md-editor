@@ -12,12 +12,11 @@ function FileIcon() {
 
 function FolderIcon({ open }) {
   return open ? (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-      <line x1="4" y1="11" x2="20" y2="11"/>
     </svg>
   ) : (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
     </svg>
   )
@@ -56,8 +55,8 @@ function TreeNode({ item, depth, currentFile, onFileSelect, saveStatus }) {
   return (
     <div>
       <div
-        className={`tree-node ${isActive ? 'active' : ''}`}
-        style={{ paddingLeft: indent }}
+        className={`tree-node ${item.isDirectory ? 'is-dir' : ''} ${isActive ? 'active' : ''}`}
+        style={{ paddingLeft: item.isDirectory ? Math.max(indent - 2, 4) : indent }}
         onClick={handleClick}
         title={item.path}
       >
@@ -363,7 +362,7 @@ const FileTree = forwardRef(function FileTree(
     projects = [], onProjectsChange },
   ref
 ) {
-  const [activeTab, setActiveTab] = useState('recent')
+  const [activeTab, setActiveTab] = useState(() => projects.length > 0 ? 'notebook' : 'recent')
   const [inputDir, setInputDir] = useState(rootDir)
   const [items, setItems] = useState([])
   const [error, setError] = useState('')

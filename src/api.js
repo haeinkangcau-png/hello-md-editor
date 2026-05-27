@@ -80,6 +80,14 @@ async function listDirHandle(dirHandle, parentPath) {
   for await (const [name, handle] of dirHandle.entries()) {
     const path = `${parentPath}/${name}`
     if (handle.kind === 'directory') {
+      if (name.endsWith('.assets')) {
+        // Register .assets dir + image files inside for blob URL access (hidden from tree)
+        fileHandles.set(path, handle)
+        for await (const [imgName, imgHandle] of handle.entries()) {
+          if (imgHandle.kind === 'file') fileHandles.set(`${path}/${imgName}`, imgHandle)
+        }
+        continue
+      }
       fileHandles.set(path, handle)  // register so subfolders are resolvable
       items.push({ name, path, isDirectory: true, handle })
     } else if (handle.kind === 'file' && (name.endsWith('.md') || name.endsWith('.html'))) {
@@ -110,6 +118,8 @@ function makeElectronAPI() {
     renameFile:       (o, n)       => wrap(api.renameFile(o, n)),
     saveImage:        (dir, name, b64) => wrap(api.saveImage(dir, name, b64)),
     cleanupImages:    (dir, refs)  => wrap(api.cleanupImages(dir, refs)),
+    copyAssets:       (src, dest)  => wrap(api.copyAssets(src, dest)),
+    readImageBase64:  (path)       => wrap(api.readImageBase64(path)),
   }
 }
 
@@ -177,11 +187,48 @@ function makeWebAPI() {
       throw new Error('웹 환경에서는 파일 이름 변경을 지원하지 않습니다')
     },
 
-    saveImage: async () => {
-      throw new Error('웹 환경에서는 이미지 저장을 지원하지 않습니다')
+    saveImage: async (assetsDir, fileName, base64Data) => {
+      // assetsDir: 'notebookRoot/subdir/filename.assets'
+      const parts = assetsDir.split('/')
+      const assetsDirName = parts.pop()
+      const parentPath = parts.join('/')
+      const parentHandle = await resolveHandle(parentPath, 'readwrite')
+      if (!parentHandle) throw new Error('디렉토리를 찾을 수 없습니다. 폴더를 먼저 열어주세요.')
+      // Create or get .assets directory
+      const assetsDirHandle = await parentHandle.getDirectoryHandle(assetsDirName, { create: true })
+      fileHandles.set(assetsDir, assetsDirHandle)
+      // Write image file
+      const fileHandle = await assetsDirHandle.getFileHandle(fileName, { create: true })
+      fileHandles.set(`${assetsDir}/${fileName}`, fileHandle)
+      const binary = atob(base64Data)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+      const writable = await fileHandle.createWritable()
+      await writable.write(bytes.buffer)
+      await writable.close()
+      return { success: true }
     },
 
-    cleanupImages: async () => ({ deleted: [] }),
+    cleanupImages: async (assetsDir, referencedImages) => {
+      const handle = await resolveHandle(assetsDir, 'readwrite')
+      if (!handle) return { deleted: [] }
+      const deleted = []
+      const refSet = new Set(referencedImages)
+      const imageExts = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
+      for await (const [name] of handle.entries()) {
+        const ext = name.slice(name.lastIndexOf('.')).toLowerCase()
+        if (imageExts.has(ext) && !refSet.has(name)) {
+          try {
+            await handle.removeEntry(name)
+            fileHandles.delete(`${assetsDir}/${name}`)
+            deleted.push(name)
+          } catch { /* ignore */ }
+        }
+      }
+      return { deleted }
+    },
+    copyAssets: async () => { throw new Error('웹 환경에서는 이미지 폴더 복사를 지원하지 않습니다') },
+    readImageBase64: async () => null,
   }
 }
 
@@ -199,6 +246,8 @@ export const createFolder     = impl.createFolder
 export const renameFile       = impl.renameFile
 export const saveImage        = impl.saveImage
 export const cleanupImages    = impl.cleanupImages
+export const copyAssets        = impl.copyAssets
+export const readImageBase64   = impl.readImageBase64
 
 // Web only: register a file handle after user picks a file
 export function registerFileHandle(path, handle) { regFile(path, handle) }
@@ -220,3 +269,12 @@ export async function pickAndReadFile() {
 }
 
 export const isWeb = !isElectron
+
+// Web only: read an image file handle and return a blob URL
+export async function readImageAsBlob(path) {
+  if (isElectron) return null
+  const handle = await resolveHandle(path, 'read')
+  if (!handle) return null
+  const file = await handle.getFile()
+  return URL.createObjectURL(file)
+}
