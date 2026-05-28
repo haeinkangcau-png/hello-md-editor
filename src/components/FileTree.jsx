@@ -118,7 +118,7 @@ function RefreshIcon() {
 }
 
 function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, onContextMenu,
-  inlineInput, inlineValue, setInlineValue, inlineInputRef, onInlineKeyDown, onInlineBlur, parentRefresh }) {
+  inlineInput, inlineValue, setInlineValue, inlineInputRef, onInlineKeyDown, onInlineBlur, parentRefresh, onFolderSelect }) {
   const [expanded, setExpanded] = useState(false)
   const [children, setChildren] = useState([])
   const [loading, setLoading] = useState(false)
@@ -137,10 +137,11 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
         finally { setLoading(false) }
       }
       setExpanded(v => !v)
+      onFolderSelect?.(item.path)
     } else {
       onFileSelect(item)
     }
-  }, [item, expanded, onFileSelect, isRenaming])
+  }, [item, expanded, onFileSelect, isRenaming, onFolderSelect])
 
   const refreshChildren = useCallback(async () => {
     if (item.isDirectory) {
@@ -245,7 +246,7 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
 
 const NotebookFolder = forwardRef(function NotebookFolder({ project, projectIndex, currentFile, onFileSelect, saveStatus,
   onContextMenu, onRootContextMenu, inlineInput, inlineValue, setInlineValue,
-  inlineInputRef, onInlineKeyDown, onInlineBlur }, ref) {
+  inlineInputRef, onInlineKeyDown, onInlineBlur, onFolderSelect }, ref) {
   const [expanded, setExpanded] = useState(true)
   const [children, setChildren] = useState([])
   const [loading, setLoading] = useState(false)
@@ -328,7 +329,7 @@ const NotebookFolder = forwardRef(function NotebookFolder({ project, projectInde
               onContextMenu={onContextMenu}
               inlineInput={inlineInput} inlineValue={inlineValue} setInlineValue={setInlineValue}
               inlineInputRef={inlineInputRef} onInlineKeyDown={onInlineKeyDown} onInlineBlur={onInlineBlur}
-              parentRefresh={refreshChildren} />
+              parentRefresh={refreshChildren} onFolderSelect={onFolderSelect} />
           ))}
           {/* 인라인 새 폴더/파일 입력 */}
           {inlineInput && (inlineInput.type === 'folder' || inlineInput.type === 'file') &&
@@ -359,7 +360,7 @@ const NotebookFolder = forwardRef(function NotebookFolder({ project, projectInde
 
 const FileTree = forwardRef(function FileTree(
   { rootDir, onRootDirChange, currentFile, onFileSelect, onFileRenamed, saveStatus, recentFiles = [], onRemoveRecent,
-    projects = [], onProjectsChange },
+    projects = [], onProjectsChange, onFolderSelect },
   ref
 ) {
   const [activeTab, setActiveTab] = useState(() => projects.length > 0 ? 'notebook' : 'recent')
@@ -599,6 +600,7 @@ const FileTree = forwardRef(function FileTree(
               inlineInputRef={inlineInputRef}
               onInlineKeyDown={handleInlineKeyDown}
               onInlineBlur={handleInlineSubmit}
+              onFolderSelect={onFolderSelect}
             />
           ))}
         </div>

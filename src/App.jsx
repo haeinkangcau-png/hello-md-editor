@@ -52,6 +52,11 @@ export default function App() {
   const currentFileRef = useRef(null)
   const editorRef = useRef(null)
   const fileTreeRef = useRef(null)
+  const selectedFolderPathRef = useRef(null)
+
+  const handleFolderSelect = useCallback((folderPath) => {
+    selectedFolderPathRef.current = folderPath
+  }, [])
   const sidebarRef = useRef(null)
   const mainRef = useRef(null)
   const isDraggingDivider = useRef(false)
@@ -170,7 +175,12 @@ export default function App() {
     const file = currentFileRef.current
     let savePath = overridePath || file?.path
     if (!savePath) {
-      const newPath = await saveDialog(null)
+      // 노트북 탭에서 폴더를 선택한 상태면 그 폴더를 기본 경로로 사용
+      const folderHint = selectedFolderPathRef.current
+      const defaultPath = folderHint
+        ? folderHint.replace(/\\/g, '/') + '/untitled.md'
+        : null
+      const newPath = await saveDialog(defaultPath)
       if (!newPath) return
       savePath = newPath
     }
@@ -509,6 +519,7 @@ export default function App() {
               onRemoveRecent={removeFromRecent}
               projects={projects}
               onProjectsChange={handleProjectsChange}
+              onFolderSelect={handleFolderSelect}
             />
           </div>
 
