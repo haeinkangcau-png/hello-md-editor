@@ -54,6 +54,21 @@ function createWindow() {
       win.webContents.send('open-file', pendingOpenPath)
     }
   })
+
+  // Open external links (http/https) in the default OS browser
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      shell.openExternal(url)
+    }
+    return { action: 'deny' }
+  })
+
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      e.preventDefault()
+      shell.openExternal(url)
+    }
+  })
 }
 
 app.whenReady().then(() => {
