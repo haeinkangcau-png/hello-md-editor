@@ -1,6 +1,19 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react'
 
-export default function HtmlEditor({ initialContent, onContentChange }) {
+// Extract headings from HTML string using DOMParser
+function extractHeadings(html) {
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    const els = doc.querySelectorAll('h1,h2,h3,h4,h5,h6')
+    return Array.from(els).map((el, i) => ({
+      level: parseInt(el.tagName[1], 10),
+      text: el.textContent.trim(),
+      pos: i,   // pos = index, used by scrollToHeading
+    }))
+  } catch { return [] }
+}
+
+const HtmlEditor = forwardRef(function HtmlEditor({ initialContent, onContentChange, onHeadingsChange }, ref) {
   const [mode, setMode] = useState('text')
   const [rawTextarea, setRawTextarea] = useState(initialContent)
   const [previewSrc, setPreviewSrc] = useState(initialContent)
@@ -63,7 +76,11 @@ export default function HtmlEditor({ initialContent, onContentChange }) {
       rawContentRef.current = html
       onContentChange(html, 0)
     })
-  }, [onContentChange])
+
+    // Extract headings from iframe and notify parent
+    const headings = extractHeadings(doc.documentElement.outerHTML)
+    onHeadingsChange?.(headings)
+  }, [onContentChange, onHeadingsChange])
 
   // ── Initialize text iframe each time it mounts ─────────────
   // The text iframe is unmounted when switching to Raw mode and
@@ -84,12 +101,25 @@ export default function HtmlEditor({ initialContent, onContentChange }) {
     setRawTextarea(current)
     setPreviewSrc(current)
     setMode('raw')
-  }, [])
+    // Re-extract headings for raw mode (from string)
+    onHeadingsChange?.(extractHeadings(current))
+  }, [onHeadingsChange])
 
   const goTextMode = useCallback(() => {
     // rawContentRef already has the latest — text iframe will pick it up on mount
     setMode('text')
   }, [])
+
+  // ── Scroll to heading by index ─────────────────────────────
+  useImperativeHandle(ref, () => ({
+    scrollToHeading(idx) {
+      const iframe = mode === 'text' ? textIframeRef.current : rawPreviewRef.current
+      const doc = iframe?.contentDocument
+      if (!doc) return
+      const headingEls = doc.querySelectorAll('h1,h2,h3,h4,h5,h6')
+      headingEls[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }), [mode])
 
   // ── Copy full-page rendered HTML as PNG to clipboard ──────
   // Renders the HTML in a hidden Electron window sized to full content,
@@ -248,4 +278,6 @@ export default function HtmlEditor({ initialContent, onContentChange }) {
       </div>
     </div>
   )
-}
+})
+
+export default HtmlEditor

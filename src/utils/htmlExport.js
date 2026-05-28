@@ -82,11 +82,26 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR
 .md-doc img { max-width: 100%; height: auto; border-radius: 4px; }
 `
 
-const EXPORT_JS = `
+export async function exportHtml({ content, title, headings, filePath }) {
+  const dir = filePath?.replace(/[/\\][^/\\]+$/, '') || ''
+
+  // Embed images as base64
+  const processedContent = await embedImages(content, dir)
+
+  // Render markdown to HTML
+  const bodyHtml = mdBlock(processedContent)
+
+  // Build TOC
+  const tocHtml = headings.map((h, i) => {
+    const indent = (h.level - 1) * 12
+    return `<a class="toc-item" href="#${makeHeadingId(h.text)}" data-hidx="${i}" style="padding-left:${indent + 14}px">${h.text}</a>`
+  }).join('\n')
+
+  const EXPORT_JS = `
 (function() {
   const content = document.getElementById('content')
   const tocItems = Array.from(document.querySelectorAll('.toc-item'))
-  const headings = Array.from(document.querySelectorAll('[data-hidx]'))
+  const headings = Array.from(content.querySelectorAll('[data-hidx]'))
   if (!headings.length) return
   let activeIdx = 0
   function updateActive(idx) {
@@ -116,21 +131,6 @@ const EXPORT_JS = `
   updateActive(0)
 })()
 `
-
-export async function exportHtml({ content, title, headings, filePath }) {
-  const dir = filePath?.replace(/[/\\][^/\\]+$/, '') || ''
-
-  // Embed images as base64
-  const processedContent = await embedImages(content, dir)
-
-  // Render markdown to HTML
-  const bodyHtml = mdBlock(processedContent)
-
-  // Build TOC
-  const tocHtml = headings.map((h, i) => {
-    const indent = (h.level - 1) * 12
-    return `<a class="toc-item" href="#${makeHeadingId(h.text)}" data-hidx="${i}" style="padding-left:${indent + 14}px">${h.text}</a>`
-  }).join('\n')
 
   const html = `<!DOCTYPE html>
 <html lang="ko">

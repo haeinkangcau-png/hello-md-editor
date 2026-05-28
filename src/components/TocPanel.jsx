@@ -110,7 +110,7 @@ export default function TocPanel({ headings, onHeadingClick, markdown }) {
               key={i}
               className={`toc-item toc-h${h.level}`}
               style={{ paddingLeft: (h.level - 1) * 10 + 10 }}
-              onClick={() => onHeadingClick(h.pos)}
+              onClick={() => onHeadingClick(h)}
               onContextMenu={(e) => handleContextMenu(e, h)}
               title={h.text}
               type="button"

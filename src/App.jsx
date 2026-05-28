@@ -4,12 +4,11 @@ import TocPanel from './components/TocPanel'
 import Editor from './components/Editor'
 import HtmlEditor from './components/HtmlEditor'
 import MarkdownPreview from './components/MarkdownPreview'
-import ViewMode from './components/ViewMode'
 import SaveAsModal from './components/SaveAsModal'
 import StatusBar from './components/StatusBar'
 import { readFile, writeFile, saveDialog, pickAndReadFile, isWeb, cleanupImages, checkExists, copyAssets } from './api'
 import { exportHtml } from './utils/htmlExport'
-import { normalizeHtmlTables } from './utils/mdRenderer'
+import { normalizeHtmlTables, makeHeadingId } from './utils/mdRenderer'
 
 export default function App() {
   const [rootDir, setRootDir] = useState('')
@@ -51,8 +50,10 @@ export default function App() {
   const contentRef = useRef('')
   const currentFileRef = useRef(null)
   const editorRef = useRef(null)
+  const htmlEditorRef = useRef(null)
   const fileTreeRef = useRef(null)
   const selectedFolderPathRef = useRef(null)
+  const previewBodyRef = useRef(null)
 
   const handleFolderSelect = useCallback((folderPath) => {
     selectedFolderPathRef.current = folderPath
@@ -342,9 +343,20 @@ export default function App() {
   }, [])
 
   // ── Heading navigation ─────────────────────────────────────
-  const handleHeadingClick = useCallback((pos) => {
-    editorRef.current?.scrollToPos(pos)
-  }, [])
+  const handleHeadingClick = useCallback((heading) => {
+    // heading is { pos, text, level } from TocPanel
+    if (isHtml) {
+      // For HTML files, pos = heading index; scroll the HtmlEditor iframe
+      htmlEditorRef.current?.scrollToHeading(heading.pos)
+    } else {
+      editorRef.current?.scrollToPos(heading.pos)
+      // Also scroll the preview pane when split view is active
+      if (showPreview && previewBodyRef.current) {
+        const el = previewBodyRef.current.querySelector(`#${makeHeadingId(heading.text)}`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }
+  }, [isHtml, showPreview])
 
   // ── Open file passed via command-line / file association ──
   useEffect(() => {
@@ -488,7 +500,7 @@ export default function App() {
           <button className="btn btn-saveas" onClick={handleSaveAs} disabled={!currentFile}>
             Save As…
           </button>
-          <button className="btn btn-saveas" onClick={handleExportHtml} disabled={!currentFile || isHtml} title="HTML 파일로 내보내기 (TOC 포함 standalone)">
+          <button className="btn btn-saveas" onClick={handleExportHtml} disabled={!currentFile || isHtml} title="HTML 파일로 내보내기">
             HTML↓
           </button>
         </div>
@@ -496,12 +508,7 @@ export default function App() {
 
       {/* ── Body ── */}
       <div className="app-body">
-        {/* ── View Mode (TOC + Preview) ── */}
-        {showPreview && currentFile && !isHtml && (
-          <ViewMode headings={headings} content={fileContent} currentFilePath={currentFile?.path} />
-        )}
-
-        <aside className="sidebar" ref={sidebarRef} style={{ display: showPreview && currentFile && !isHtml ? 'none' : undefined }}>
+        <aside className="sidebar" ref={sidebarRef}>
           {/* File tree pane */}
           <div
             className="sidebar-pane"
@@ -538,7 +545,7 @@ export default function App() {
           )}
         </aside>
 
-        <main className="editor-area" ref={mainRef} style={{ display: showPreview && currentFile && !isHtml ? 'none' : undefined }}>
+        <main className="editor-area" ref={mainRef}>
           {/* Drag overlay */}
           {isDragOver && (
             <div className="drag-overlay">
@@ -555,6 +562,7 @@ export default function App() {
           {/* Editor panel */}
           <div
             className="editor-panel"
+            style={showPreview && currentFile && !isHtml ? { width: `${previewSplit}%`, flex: 'none' } : undefined}
           >
             {fileLoading ? (
               <div className="loading">
@@ -564,9 +572,11 @@ export default function App() {
             ) : currentFile ? (
               isHtml ? (
                 <HtmlEditor
+                  ref={htmlEditorRef}
                   key={currentFile.path}
                   initialContent={fileContent}
                   onContentChange={handleContentChange}
+                  onHeadingsChange={setHeadings}
                 />
               ) : (
                 <Editor
@@ -624,6 +634,20 @@ export default function App() {
               </div>
             )}
           </div>
+
+          {/* Preview panel (split view) */}
+          {showPreview && currentFile && !isHtml && (
+            <>
+              <div className="preview-divider" onMouseDown={handlePreviewDividerMouseDown} />
+              <div className="preview-panel" style={{ flex: 1 }}>
+                <MarkdownPreview
+                  content={fileContent}
+                  scrollRef={previewBodyRef}
+                  currentFilePath={currentFile?.path}
+                />
+              </div>
+            </>
+          )}
         </main>
       </div>
 
