@@ -9,6 +9,7 @@ import SaveAsModal from './components/SaveAsModal'
 import StatusBar from './components/StatusBar'
 import { readFile, writeFile, saveDialog, pickAndReadFile, isWeb, cleanupImages, checkExists, copyAssets } from './api'
 import { exportHtml } from './utils/htmlExport'
+import { normalizeHtmlTables } from './utils/mdRenderer'
 
 export default function App() {
   const [rootDir, setRootDir] = useState('')
@@ -176,8 +177,28 @@ export default function App() {
 
     try {
       setSaveStatus('saving')
-      await writeFile(savePath, contentRef.current)
+
+      // Auto-normalize broken HTML tables to valid Markdown on every save (.md only)
+      const isMarkdown = !file?.name?.endsWith('.html') && !file?.name?.endsWith('.htm')
+      let contentToSave = contentRef.current
+      let wasNormalized = false
+      if (isMarkdown && /<table[\s\S]*?<\/table>/i.test(contentToSave)) {
+        const normalized = normalizeHtmlTables(contentToSave)
+        if (normalized !== contentToSave) {
+          contentToSave = normalized
+          contentRef.current = normalized
+          wasNormalized = true
+        }
+      }
+
+      await writeFile(savePath, contentToSave)
       setSaveStatus('saved')
+
+      // Sync editor display to show cleaned-up content (without marking as 'modified')
+      if (wasNormalized) {
+        setFileContent(contentToSave)
+        editorRef.current?.applyNormalized(contentToSave)
+      }
 
       // Manual save → clean up orphan images
       if (isManual) await runImageCleanup(savePath, contentRef.current)

@@ -179,8 +179,14 @@ function makeWebAPI() {
       }
     },
 
-    createFolder: async () => {
-      throw new Error('웹 환경에서는 폴더 생성을 지원하지 않습니다')
+    createFolder: async (dirPath) => {
+      const parts = dirPath.replace(/\\/g, '/').split('/')
+      const folderName = parts.pop()
+      const parentPath = parts.join('/')
+      const parentHandle = await resolveHandle(parentPath, 'readwrite')
+      if (!parentHandle) throw new Error('상위 디렉토리를 찾을 수 없습니다. 폴더를 먼저 열어주세요.')
+      const newHandle = await parentHandle.getDirectoryHandle(folderName, { create: true })
+      regFile(dirPath.replace(/\\/g, '/'), newHandle)
     },
 
     renameFile: async () => {

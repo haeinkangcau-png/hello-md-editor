@@ -339,6 +339,19 @@ const Editor = forwardRef(function Editor(
     openSearch: () => {
       setSearchOpen(true)
     },
+    // Called after save-time normalization; updates display without marking as 'modified'
+    applyNormalized: (content) => {
+      if (editModeRef.current === 'wysiwyg' && editor) {
+        isSettingContent.current = true
+        editor.commands.setContent(content)
+        setTimeout(() => {
+          isSettingContent.current = false
+          onHeadingsChange?.(extractHeadings(editor))
+        }, 60)
+      } else if (editModeRef.current === 'raw') {
+        setRawContent(content)
+      }
+    },
   }), [editor])
 
   // Load initial content on mount
