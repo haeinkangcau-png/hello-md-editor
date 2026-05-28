@@ -254,16 +254,20 @@ export function mdBlock(md, linkReg) {
 
     // Paragraph
     const si = i
-    let para = ''
+    let paraHtml = ''
     while (i < lines.length) {
       const c = lines[i].trimEnd(), ct = c.trim()
       if (!ct || /^>/.test(c) || /^[-*+] /.test(ct) || /^\d+[.)]\s/.test(ct) ||
         ct.startsWith('|') || ct.startsWith('<table') ||
         /^\*\*[^*\n]+\*\*\s*$/.test(ct) || /^#{1,}/.test(ct) ||
         /^```/.test(ct) || /^(-{3,}|\*{3,}|_{3,})$/.test(ct)) break
-      para += (para ? ' ' : '') + c; i++
+      const hardBreak = c.endsWith('\\')
+      const lineText = hardBreak ? c.slice(0, -1) : c
+      if (paraHtml) paraHtml += hardBreak ? '<br>' : ' '
+      paraHtml += mdInline(lineText)
+      i++
     }
-    if (para) html += `<p class="dp-para">${mdInline(para)}</p>`
+    if (paraHtml) html += `<p class="dp-para">${paraHtml}</p>`
     else if (i === si) i++
   }
   return html || `<p class="dp-para">${mdInline(md)}</p>`
