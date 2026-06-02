@@ -1053,6 +1053,116 @@ kbd {
   pointer-events: none;
 }
 
+/* ── 스케줄 버튼 ────────────────────────────────────────────── */
+.schedule-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.schedule-btn:hover {
+  background: #e8f4f0;
+  border-color: #3a9d8f;
+  color: #1a544a;
+}
+
+/* ── 날짜 하이라이트 (클릭 가능 표시) ────────────────────────── */
+.date-highlight {
+  background: #f0eeeb;
+  border-radius: 3px;
+  padding: 0 2px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.date-highlight:hover {
+  background: #e4e1dc;
+}
+
+/* ── 날짜 피커 팝업 ─────────────────────────────────────────── */
+.editor-cal-popup {
+  position: fixed;
+  z-index: 9999;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.14);
+  padding: 24px 10px 10px;
+  width: 218px;
+  user-select: none;
+  font-family: var(--font-ui);
+}
+.editor-cal-close {
+  position: absolute;
+  top: 4px; right: 4px;
+  width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background .1s, color .1s;
+}
+.editor-cal-close:hover { background: var(--color-surface2); color: var(--color-text); }
+.editor-cal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.editor-cal-header span {
+  font-size: 13px; font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-text);
+  min-width: 80px; text-align: center;
+}
+.editor-cal-nav {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  cursor: pointer; font-size: 11px; color: var(--color-text-muted);
+  transition: background .1s;
+}
+.editor-cal-nav:hover { background: var(--color-surface2); }
+.editor-cal-dow {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 2px;
+}
+.editor-cal-dow span {
+  font-size: 10px; font-family: var(--font-mono);
+  color: var(--color-text-muted); text-align: center; padding: 2px 0;
+}
+.editor-cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+.editor-cal-day {
+  height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-family: var(--font-mono);
+  color: var(--color-text);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background .1s;
+}
+.editor-cal-day:hover { background: var(--color-surface2); }
+.editor-cal-day.other { color: var(--color-text-muted); opacity: 0.5; }
+.editor-cal-day.today { background: #cf222e; color: #fff; font-weight: 600; }
+.editor-cal-day.today:hover { background: #b01c28; }
+.editor-cal-day.selected { background: var(--color-text); color: #fff; font-weight: 600; }
+.editor-cal-day.selected:hover { background: #333; }
+.editor-cal-day.mon { color: var(--color-accent); }
+
 /* ── Raw markdown editor ──────────────────────────────────── */
 .raw-scroll {
   padding: 0 !important;

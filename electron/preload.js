@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   copyAssets:        (src, dest)        => ipcRenderer.invoke('copy-assets', src, dest),
   readImageBase64:   (filePath)         => ipcRenderer.invoke('read-image-base64', filePath),
   getOpenFilePath:   ()               => ipcRenderer.invoke('get-open-file-path'),
+  openScheduleWindow: (content, fileName) => ipcRenderer.invoke('open-schedule-window', content, fileName),
   onOpenFile:        (cb)             => {
     const handler = (_, p) => cb(p)
     ipcRenderer.on('open-file', handler)

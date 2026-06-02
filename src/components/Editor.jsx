@@ -18,7 +18,100 @@ import SelectionInfo from './SelectionInfo'
 import SearchBar from './SearchBar'
 import { normalizeHtmlTables } from '../utils/mdRenderer'
 import { SearchHighlight, searchPluginKey } from '../utils/searchExtension'
-import { saveImage, isWeb, readImageAsBlob } from '../api'
+import { DateHighlight } from '../utils/dateHighlight'
+import { saveImage, isWeb, readImageAsBlob, openScheduleWindow } from '../api'
+
+// ── 날짜 유틸 ────────────────────────────────────────────────
+function fmtDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
+function findDateAtPos(text, pos) {
+  const s = Math.max(0, pos - 12)
+  const e = Math.min(text.length, pos + 12)
+  const chunk = text.substring(s, e)
+  const re = /\d{4}-\d{2}-\d{2}/g
+  let m
+  while ((m = re.exec(chunk)) !== null) {
+    const absStart = s + m.index
+    const absEnd = absStart + m[0].length
+    if (pos >= absStart && pos <= absEnd) return { dateStr: m[0], start: absStart, end: absEnd }
+  }
+  return null
+}
+
+// ── DatePickerPopup ──────────────────────────────────────────
+function DatePickerPopup({ x, y, dateStr, onSelect, onClose }) {
+  const parsed = new Date(dateStr + 'T00:00:00')
+  const init = isNaN(parsed) ? new Date() : parsed
+  const [year, setYear] = useState(init.getFullYear())
+  const [month, setMonth] = useState(init.getMonth())
+  const [selected, setSelected] = useState(dateStr)
+
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+
+  const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11) } else setMonth(m => m - 1) }
+  const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0) } else setMonth(m => m + 1) }
+
+  const first = new Date(year, month, 1)
+  const dow = first.getDay()
+  const lastDay = new Date(year, month + 1, 0).getDate()
+  const prevLast = new Date(year, month, 0).getDate()
+  const days = []
+  for (let i = dow - 1; i >= 0; i--) {
+    const dt = new Date(year, month - 1, prevLast - i)
+    days.push({ day: prevLast - i, other: true, date: fmtDate(dt) })
+  }
+  for (let d = 1; d <= lastDay; d++) {
+    const dt = new Date(year, month, d)
+    days.push({ day: d, other: false, date: fmtDate(dt), isToday: dt.getTime() === today.getTime(), isSel: fmtDate(dt) === selected, isMon: dt.getDay() === 1 })
+  }
+  const remain = (7 - (dow + lastDay) % 7) % 7
+  for (let d = 1; d <= remain; d++) {
+    const dt = new Date(year, month + 1, d)
+    days.push({ day: d, other: true, date: fmtDate(dt) })
+  }
+
+  // 화면 경계 처리
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+  let left = x, top = y + 8
+  if (left + 226 > vw) left = vw - 234
+  if (left < 8) left = 8
+  if (top + 270 > vh) top = y - 278
+  if (top < 8) top = 8
+
+  return (
+    <div className="editor-cal-popup" style={{ top, left }} onMouseDown={e => e.stopPropagation()}>
+      <button className="editor-cal-close" onClick={onClose}>✕</button>
+      <div className="editor-cal-header">
+        <button className="editor-cal-nav" onClick={prevMonth}>◀</button>
+        <span>{year}.{String(month + 1).padStart(2, '0')}</span>
+        <button className="editor-cal-nav" onClick={nextMonth}>▶</button>
+      </div>
+      <div className="editor-cal-dow">
+        {['일','월','화','수','목','금','토'].map(d => <span key={d}>{d}</span>)}
+      </div>
+      <div className="editor-cal-grid">
+        {days.map((d, i) => (
+          <div
+            key={i}
+            className={[
+              'editor-cal-day',
+              d.other ? 'other' : '',
+              d.isToday ? 'today' : '',
+              d.isSel ? 'selected' : '',
+              d.isMon && !d.isToday && !d.isSel ? 'mon' : '',
+            ].filter(Boolean).join(' ')}
+            onClick={() => { setSelected(d.date); onSelect(d.date) }}
+          >
+            {d.day}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function todayStr() {
   const d = new Date()
@@ -64,6 +157,9 @@ const Editor = forwardRef(function Editor(
   const [editMode, setEditMode] = useState('wysiwyg') // 'wysiwyg' | 'raw'
   const [rawContent, setRawContent] = useState('')
   const [copied, setCopied] = useState(false)
+  const scheduleChannelRef = useRef(null)
+  const rawContentRef = useRef('')
+  const [calState, setCalState] = useState(null) // { x, y, dateStr, onApply }
 
   // ── Search state ───────────────────────────────────────────
   const [searchOpen, setSearchOpen] = useState(false)
@@ -80,6 +176,7 @@ const Editor = forwardRef(function Editor(
   // ── Image paste handler ─────────────────────────────────
   const currentFilePathRef = useRef(currentFilePath)
   useEffect(() => { currentFilePathRef.current = currentFilePath }, [currentFilePath])
+  useEffect(() => { rawContentRef.current = rawContent }, [rawContent])
 
   const editorRef2 = useRef(null)
   const editModeRef = useRef(editMode)
@@ -229,6 +326,7 @@ const Editor = forwardRef(function Editor(
         transformPastedText: true,
       }),
       SearchHighlight,
+      DateHighlight,
     ],
     content: '',
     editorProps: {
@@ -282,6 +380,8 @@ const Editor = forwardRef(function Editor(
       const rawMd = editor.storage.markdown.getMarkdown()
       const markdown = toRelImagePaths(rawMd)
       onContentChange(markdown, countWords(editor.getText()))
+      const unescaped = markdown.replace(/\\([\[\]~*_`|\\<>])/g, '$1')
+      scheduleChannelRef.current?.postMessage({ type: 'md-update', content: unescaped })
       // Debounce heading extraction — no need to traverse the full doc on every keystroke
       clearTimeout(headingDebounceRef.current)
       headingDebounceRef.current = setTimeout(() => {
@@ -446,8 +546,9 @@ const Editor = forwardRef(function Editor(
     const md = editor.storage.markdown.getMarkdown()
     setRawContent(md)
     setEditMode('raw')
-    // Clear WYSIWYG search highlights
     editor.commands.clearSearch()
+    const unescapedMd = md.replace(/\\([\[\]~*_`|\\<>])/g, '$1')
+    scheduleChannelRef.current?.postMessage({ type: 'md-update', content: unescapedMd })
   }, [editor])
 
   const switchToWysiwyg = useCallback(() => {
@@ -489,6 +590,99 @@ const Editor = forwardRef(function Editor(
     }
   }, [editMode, editor, rawContent, onContentChange, onHeadingsChange])
 
+  // ── Date picker: raw mode ──────────────────────────────────
+  const handleRawDateClick = useCallback((e) => {
+    const ta = textareaRef.current
+    if (!ta) return
+    // 클릭 후 selectionStart 업데이트 대기
+    requestAnimationFrame(() => {
+      const pos = ta.selectionStart
+      const result = findDateAtPos(ta.value, pos)
+      if (result) {
+        const { dateStr, start: ds, end: de } = result
+        setCalState({
+          x: e.clientX,
+          y: e.clientY,
+          dateStr,
+          onApply: (newDate) => {
+            setRawContent(prev => {
+              const val = prev.slice(0, ds) + newDate + prev.slice(de)
+              onContentChange(val, countWords(val))
+              scheduleChannelRef.current?.postMessage({ type: 'md-update', content: val })
+              return val
+            })
+            setCalState(null)
+            requestAnimationFrame(() => {
+              textareaRef.current?.focus()
+              textareaRef.current?.setSelectionRange(ds, ds + newDate.length)
+            })
+          },
+        })
+      } else {
+        setCalState(null)
+      }
+    })
+  }, [onContentChange])
+
+  // ── Date picker: WYSIWYG mode ─────────────────────────────
+  const handleWysiwygDateClick = useCallback((e) => {
+    if (!editor) return
+    requestAnimationFrame(() => {
+      const { $from } = editor.state.selection
+      const offset = $from.parentOffset
+      const nodeText = $from.parent.textContent
+      const result = findDateAtPos(nodeText, offset)
+      if (result) {
+        const nodeStart = $from.start()
+        const docStart = nodeStart + result.start
+        const docEnd = nodeStart + result.end
+        setCalState({
+          x: e.clientX,
+          y: e.clientY,
+          dateStr: result.dateStr,
+          onApply: (newDate) => {
+            editor.chain().focus().command(({ tr, dispatch }) => {
+              tr.insertText(newDate, docStart, docEnd)
+              if (dispatch) dispatch(tr)
+              return true
+            }).run()
+            setCalState(null)
+          },
+        })
+      } else {
+        setCalState(null)
+      }
+    })
+  }, [editor])
+
+  const handleOpenSchedule = useCallback(async () => {
+    // TipTap getMarkdown()은 특수문자를 이스케이프하므로 해제
+    const unescapeMd = (s) => s.replace(/\\([\[\]~*_`|\\<>])/g, '$1')
+
+    if (!scheduleChannelRef.current) {
+      const ch = new BroadcastChannel('md-schedule-sync')
+      ch.onmessage = (e) => {
+        if (e.data?.type === 'md-request') {
+          const raw = editModeRef.current === 'raw'
+            ? rawContentRef.current
+            : unescapeMd(editorRef2.current?.storage.markdown.getMarkdown() || '')
+          const fp2 = currentFilePathRef.current || ''
+          const fn = fp2 ? fp2.replace(/\\/g, '/').split('/').pop().replace(/\.md$/i, '') : ''
+          ch.postMessage({ type: 'md-update', content: raw, fileName: fn })
+        }
+      }
+      scheduleChannelRef.current = ch
+    }
+    // 현재 MD 콘텐츠를 IPC로 직접 전달
+    const initialMd = editModeRef.current === 'raw'
+      ? rawContentRef.current
+      : unescapeMd(editorRef2.current?.storage.markdown.getMarkdown() || '')
+    // 파일명 추출
+    const fp = currentFilePathRef.current || ''
+    const fileName = fp ? fp.replace(/\\/g, '/').split('/').pop().replace(/\.md$/i, '') : '스케줄'
+    await openScheduleWindow(initialMd, fileName)
+  }, [])
+
   const handleCopyAll = useCallback(async () => {
     const md = editMode === 'wysiwyg'
       ? editor.storage.markdown.getMarkdown()
@@ -525,6 +719,7 @@ const Editor = forwardRef(function Editor(
     }
     setRawContent(val)
     onContentChange(val, countWords(val))
+    scheduleChannelRef.current?.postMessage({ type: 'md-update', content: val })
   }, [onContentChange])
 
   // ── Search handlers ────────────────────────────────────────
@@ -671,6 +866,21 @@ const Editor = forwardRef(function Editor(
 
         <div className="mode-bar-right">
           <button
+            className="schedule-btn"
+            onClick={handleOpenSchedule}
+            title="스케줄 보기 — 새 창에서 Gantt 차트로 열기"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="16" rx="2"/>
+              <line x1="3" y1="9" x2="21" y2="9"/>
+              <line x1="8" y1="4" x2="8" y2="9"/>
+              <line x1="16" y1="4" x2="16" y2="9"/>
+              <line x1="7" y1="14" x2="11" y2="14"/>
+              <line x1="7" y1="17" x2="15" y2="17"/>
+            </svg>
+            스케줄
+          </button>
+          <button
             className="copy-md-btn"
             onClick={handleCopyAll}
             title="전체 내용을 Markdown으로 클립보드에 복사"
@@ -714,6 +924,8 @@ const Editor = forwardRef(function Editor(
             if (e.ctrlKey || e.metaKey) {
               const a = e.target.closest('a')
               if (a?.href) { e.preventDefault(); window.open(a.href, '_blank', 'noopener,noreferrer') }
+            } else {
+              handleWysiwygDateClick(e)
             }
           }}
         >
@@ -731,10 +943,22 @@ const Editor = forwardRef(function Editor(
             onChange={handleRawChange}
             onKeyDown={handleKeyDown}
             onPaste={handleRawPaste}
+            onClick={handleRawDateClick}
             spellCheck={false}
             autoFocus
           />
         </div>
+      )}
+
+      {/* ── Date picker popup ── */}
+      {calState && (
+        <DatePickerPopup
+          x={calState.x}
+          y={calState.y}
+          dateStr={calState.dateStr}
+          onSelect={calState.onApply}
+          onClose={() => setCalState(null)}
+        />
       )}
     </div>
   )

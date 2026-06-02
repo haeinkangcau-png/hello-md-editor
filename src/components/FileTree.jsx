@@ -289,7 +289,7 @@ const NotebookFolder = forwardRef(function NotebookFolder({ project, projectInde
     <div className="notebook-folder">
       <div
         className="notebook-folder-header"
-        onClick={() => setExpanded(v => !v)}
+        onClick={() => { setExpanded(v => !v); onFolderSelect?.(project.path) }}
         onContextMenu={handleRootCtx}
         title={project.path}
       >

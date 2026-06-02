@@ -303,3 +303,53 @@ ipcMain.handle('read-image-base64', (_, filePath) => {
   const data = fs.readFileSync(resolved).toString('base64')
   return `data:${mimeType};base64,${data}`
 })
+
+let scheduleWindow = null;
+ipcMain.handle('open-schedule-window', async (event, content, fileName) => {
+  // 기존 스케줄 창이 열려있으면 재사용
+  if (scheduleWindow && !scheduleWindow.isDestroyed()) {
+    scheduleWindow.focus();
+    // 콘텐츠 + 파일명 업데이트
+    if (content) {
+      const safeFileName = (fileName || '스케줄').replace(/'/g, "\\'");
+      await scheduleWindow.webContents.executeJavaScript(`
+        (function() {
+          var el = document.getElementById('mdInput');
+          if (el) { el.value = ${JSON.stringify(content)}; }
+          var h1 = document.querySelector('header h1');
+          if (h1) h1.textContent = '${safeFileName}';
+          if (typeof render === 'function') render(typeof currentMode !== 'undefined' ? currentMode : 'fit');
+        })();
+      `);
+    }
+    return;
+  }
+  scheduleWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    title: '스케줄 뷰어',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+  scheduleWindow.on('closed', () => { scheduleWindow = null; });
+  if (isDev) {
+    await scheduleWindow.loadURL('http://localhost:5174/schedule.html')
+  } else {
+    await scheduleWindow.loadFile(path.join(__dirname, '../dist/schedule.html'))
+  }
+  // 로드 완료 후 현재 MD 콘텐츠 + 파일명 직접 주입
+  if (content) {
+    const safeFileName = (fileName || '스케줄').replace(/'/g, "\\'");
+    await scheduleWindow.webContents.executeJavaScript(`
+      (function() {
+        var el = document.getElementById('mdInput');
+        if (el) { el.value = ${JSON.stringify(content)}; }
+        var h1 = document.querySelector('header h1');
+        if (h1) h1.textContent = '${safeFileName}';
+        if (typeof render === 'function') render(typeof currentMode !== 'undefined' ? currentMode : 'fit');
+      })();
+    `)
+  }
+})

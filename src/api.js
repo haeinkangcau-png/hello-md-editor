@@ -120,6 +120,7 @@ function makeElectronAPI() {
     cleanupImages:    (dir, refs)  => wrap(api.cleanupImages(dir, refs)),
     copyAssets:       (src, dest)  => wrap(api.copyAssets(src, dest)),
     readImageBase64:  (path)       => wrap(api.readImageBase64(path)),
+    openScheduleWindow: (content, fileName) => api.openScheduleWindow(content, fileName),
   }
 }
 
@@ -235,6 +236,28 @@ function makeWebAPI() {
     },
     copyAssets: async () => { throw new Error('웹 환경에서는 이미지 폴더 복사를 지원하지 않습니다') },
     readImageBase64: async () => null,
+    openScheduleWindow: (content, fileName) => {
+      const w = window.open('/schedule.html', 'md-schedule', 'width=1400,height=900');
+      if (w) {
+        const inject = () => {
+          if (content) {
+            const el = w.document.getElementById('mdInput');
+            if (el) { el.value = content; }
+          }
+          const h1 = w.document.querySelector('header h1');
+          if (h1 && fileName) h1.textContent = fileName;
+          if (typeof w.render === 'function') w.render(w.currentMode || 'fit');
+        };
+        // 이미 로드된 창이면 바로 주입, 아니면 load 이벤트 대기
+        if (w.document.readyState === 'complete' && w.document.getElementById('mdInput')) {
+          inject();
+          w.focus();
+        } else {
+          w.addEventListener('load', inject);
+        }
+      }
+      return Promise.resolve();
+    },
   }
 }
 
@@ -252,8 +275,9 @@ export const createFolder     = impl.createFolder
 export const renameFile       = impl.renameFile
 export const saveImage        = impl.saveImage
 export const cleanupImages    = impl.cleanupImages
-export const copyAssets        = impl.copyAssets
-export const readImageBase64   = impl.readImageBase64
+export const copyAssets          = impl.copyAssets
+export const readImageBase64     = impl.readImageBase64
+export const openScheduleWindow  = (content, fileName) => impl.openScheduleWindow(content, fileName)
 
 // Web only: register a file handle after user picks a file
 export function registerFileHandle(path, handle) { regFile(path, handle) }

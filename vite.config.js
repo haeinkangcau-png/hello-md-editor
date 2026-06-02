@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  base: './',   // Required for Electron production builds (file:// protocol)
+  base: process.env.GITHUB_PAGES ? '/hello-md-editor/' : './',
   plugins: [react()],
   server: {
     port: 5174,
