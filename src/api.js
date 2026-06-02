@@ -237,7 +237,9 @@ function makeWebAPI() {
     copyAssets: async () => { throw new Error('웹 환경에서는 이미지 폴더 복사를 지원하지 않습니다') },
     readImageBase64: async () => null,
     openScheduleWindow: (content, fileName) => {
-      const w = window.open('/schedule.html', 'md-schedule', 'width=1400,height=900');
+      const base = import.meta.env.BASE_URL || '/';
+      const url = base + 'schedule.html';
+      const w = window.open(url, 'md-schedule', 'width=1400,height=900');
       if (w) {
         const inject = () => {
           if (content) {
