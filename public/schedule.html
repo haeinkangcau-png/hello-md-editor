@@ -450,6 +450,56 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 .cal-q-btn.minus:hover { background: #fce8e4; }
 .cal-q-btn.plus { color: var(--teal-tx, #0d5c42); }
 .cal-q-btn.plus:hover { background: #e3f5ee; }
+.cal-duration {
+  margin-top: 8px; padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+  display: none;
+}
+.cal-duration.show { display: block; }
+.cal-dur-label {
+  font-size: 10px; font-weight: 500; color: var(--text-muted);
+  display: block; margin-bottom: 5px;
+}
+.cal-dur-row {
+  display: flex; align-items: center; gap: 4px;
+}
+.cal-dur-input {
+  width: 36px; padding: 4px 4px;
+  font-size: 12px; font-family: 'IBM Plex Mono', monospace;
+  text-align: center;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface);
+  outline: none;
+}
+.cal-dur-input:focus { border-color: var(--text-muted); }
+.cal-dur-units {
+  display: flex; gap: 0;
+  border: 1px solid var(--border); border-radius: 4px;
+  overflow: hidden;
+}
+.cal-dur-unit {
+  padding: 4px 7px;
+  font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: none; border-right: 1px solid var(--border-light);
+  cursor: pointer;
+  transition: background .1s, color .1s;
+}
+.cal-dur-unit:last-child { border-right: none; }
+.cal-dur-unit:hover { background: #f2f0eb; }
+.cal-dur-unit.active { background: var(--text-primary); color: #fff; }
+.cal-dur-apply {
+  padding: 4px 8px;
+  font-size: 11px; font-weight: 500;
+  color: #fff;
+  background: var(--text-primary);
+  border: none; border-radius: 4px;
+  cursor: pointer;
+  transition: background .1s;
+}
+.cal-dur-apply:hover { background: #333; }
 
 /* 텍스트에리어 래퍼 (캘린더 위치 기준) */
 .editor-area-wrap {
@@ -634,6 +684,18 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
       <button class="cal-q-btn plus" data-add="+sprint">+Sprint</button>
       <button class="cal-q-btn plus" data-add="+week">+Week</button>
       <button class="cal-q-btn plus" data-add="+month">+Month</button>
+    </div>
+  </div>
+  <div class="cal-duration" id="calDuration">
+    <span class="cal-dur-label">기간으로 설정</span>
+    <div class="cal-dur-row">
+      <input type="number" id="calDurValue" class="cal-dur-input" min="1" value="2" />
+      <div class="cal-dur-units">
+        <button class="cal-dur-unit active" data-unit="sprint">Sprint</button>
+        <button class="cal-dur-unit" data-unit="week">Week</button>
+        <button class="cal-dur-unit" data-unit="month">Month</button>
+      </div>
+      <button class="cal-dur-apply" id="calDurApply">적용</button>
     </div>
   </div>
   <div class="cal-hint">시작일 → 월요일 · 끝 → 금요일 스냅</div>
@@ -1110,18 +1172,19 @@ function render(mode) {
       if (!item.start || !item.end) return;
       const left = p(item.start), w = p(item.end) - left;
       const tip = item.main + (item.sub ? ' ('+item.sub+')' : '');
+      const gattr = ' data-s="'+item.start+'" data-e="'+item.end+'"';
       if (item.barType === 'normal') {
         if (w < 1) {
           trackHTML += '<div class="event-marker" style="left:'+left+'px" title="'+tip+'"><div class="event-diamond" style="background:'+col.bd+'"></div><span class="event-label" style="color:'+col.tx+'">'+item.main+'</span></div>';
         } else {
-          trackHTML += '<div class="bar chart-bar" title="'+tip+'" style="left:'+left+'px;width:'+w+'px;background:'+col.bg+';border-color:'+col.bd+';color:'+col.tx+'">'+item.main+'</div>';
+          trackHTML += '<div class="bar chart-bar"'+gattr+' title="'+tip+'" style="left:'+left+'px;width:'+w+'px;background:'+col.bg+';border-color:'+col.bd+';color:'+col.tx+'">'+item.main+'</div>';
         }
       } else if (item.barType === 'tbd') {
-        trackHTML += '<div class="bar-tbd-wrap chart-bar" title="'+tip+'" style="left:'+left+'px;width:'+w+'px">'
+        trackHTML += '<div class="bar-tbd-wrap chart-bar"'+gattr+' title="'+tip+'" style="left:'+left+'px;width:'+w+'px">'
           + '<div class="bar-tbd" style="border-color:'+col.bd+';background:'+col.bg+'88;color:'+col.tx+'">'+item.main+'</div>'
           + '<div class="bar-tbd-fade"></div></div>';
       } else if (item.barType === 'cert') {
-        trackHTML += '<div class="bar-cert chart-bar" title="'+tip+'" style="left:'+left+'px;width:'+w+'px;border:1.5px dashed '+CERT_STYLE.bd+';background:'+CERT_STYLE.bg+';color:'+CERT_STYLE.tx+'">'+item.main+'</div>';
+        trackHTML += '<div class="bar-cert chart-bar"'+gattr+' title="'+tip+'" style="left:'+left+'px;width:'+w+'px;border:1.5px dashed '+CERT_STYLE.bd+';background:'+CERT_STYLE.bg+';color:'+CERT_STYLE.tx+'">'+item.main+'</div>';
       }
       if (item.ms) {
         trackHTML += '<div class="ms" style="left:'+p(item.ms.d)+'px" title="'+item.ms.label+'"></div>';
@@ -1507,8 +1570,10 @@ function openCal(x, y, dateStr, showDates) {
     calDates.style.display = 'flex';
     calStartValue.textContent = calCtx.startDate || '—';
     calEndValue.textContent = calCtx.endDate || '—';
+    calDurEl.classList.add('show');
   } else {
     calDates.style.display = 'none';
+    calDurEl.classList.remove('show');
   }
   updateDateItemActive();
   positionCal(x, y);
@@ -1543,19 +1608,37 @@ function switchDateMode(mode) {
 // MD 라인에서 시작/끝 날짜를 정확히 구분해서 교체
 function replaceChartDate(ta, oldDate, newDate) {
   const lines = ta.value.split('\n');
+  const targetName = calCtx.itemName;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].includes(calCtx.startDate) && lines[i].includes(calCtx.endDate) && lines[i].includes(calCtx.itemName)) {
+    const line = lines[i];
+    // 우선: 이름 + 양쪽 날짜 모두 매치
+    if (line.includes(targetName) && line.includes(calCtx.startDate) && line.includes(calCtx.endDate)) {
       if (calDateMode === 'end') {
-        lines[i] = lines[i].replace('~ ' + oldDate, '~ ' + newDate);
+        lines[i] = line.replace('~ ' + oldDate, '~ ' + newDate);
       } else {
-        lines[i] = lines[i].replace(oldDate + ' ~', newDate + ' ~');
+        lines[i] = line.replace(oldDate + ' ~', newDate + ' ~');
       }
       if (calDateMode === 'start') calCtx.startDate = newDate;
       else calCtx.endDate = newDate;
-      break;
+      ta.value = lines.join('\n');
+      return;
     }
   }
-  ta.value = lines.join('\n');
+  // fallback: 이름 없이 양쪽 날짜만 매치
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.includes(calCtx.startDate) && line.includes(calCtx.endDate)) {
+      if (calDateMode === 'end') {
+        lines[i] = line.replace('~ ' + oldDate, '~ ' + newDate);
+      } else {
+        lines[i] = line.replace(oldDate + ' ~', newDate + ' ~');
+      }
+      if (calDateMode === 'start') calCtx.startDate = newDate;
+      else calCtx.endDate = newDate;
+      ta.value = lines.join('\n');
+      return;
+    }
+  }
 }
 
 // 날짜 클릭 → MD 업데이트
@@ -1592,7 +1675,7 @@ calGrid.addEventListener('click', (e) => {
 
   closeCal();
   clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => render(currentMode), 150);
+  render(currentMode);
 });
 
 document.getElementById('calPrev').addEventListener('click', () => {
@@ -1669,6 +1752,52 @@ document.querySelector('.cal-quick').addEventListener('click', (e) => {
   calSelectedDate = d;
   showCal(d.getFullYear(), d.getMonth(), d);
 
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => render(currentMode), 150);
+});
+
+// ── 기간으로 설정 (Duration) ──
+const calDurEl = document.getElementById('calDuration');
+const calDurUnits = calDurEl.querySelectorAll('.cal-dur-unit');
+let calDurUnit = 'sprint';
+
+calDurUnits.forEach(btn => {
+  btn.addEventListener('click', () => {
+    calDurUnits.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    calDurUnit = btn.dataset.unit;
+  });
+});
+
+document.getElementById('calDurApply').addEventListener('click', () => {
+  if (!calCtx || calCtx.source !== 'chart') return;
+  const n = parseInt(document.getElementById('calDurValue').value) || 1;
+  const startStr = calCtx.startDate;
+  if (!startStr) return;
+
+  const start = new Date(startStr + 'T00:00:00');
+  const end = new Date(start);
+
+  if (calDurUnit === 'sprint') end.setDate(end.getDate() + n * 14);
+  else if (calDurUnit === 'week') end.setDate(end.getDate() + n * 7);
+  else if (calDurUnit === 'month') end.setMonth(end.getMonth() + n);
+
+  // 끝 → 금요일 스냅
+  snapToFriday(end);
+
+  const newEndDate = fmtDate(end);
+  const ta = document.getElementById('mdInput');
+  const oldEnd = calCtx.endDate;
+
+  // 임시로 calDateMode를 end로 바꿔서 replaceChartDate가 끝 날짜를 교체하도록
+  const prevMode = calDateMode;
+  calDateMode = 'end';
+  replaceChartDate(ta, oldEnd, newEndDate);
+  calDateMode = prevMode;
+
+  // UI 갱신
+  calEndValue.textContent = calCtx.endDate;
+  closeCal();
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => render(currentMode), 150);
 });
