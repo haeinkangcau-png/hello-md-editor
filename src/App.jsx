@@ -103,6 +103,11 @@ export default function App() {
     setScheduleSplit(false)
   }, [])
 
+  // 파일 전환 시 스케줄 스플릿 자동 닫기
+  useEffect(() => {
+    setScheduleSplit(false)
+  }, [currentFile])
+
   // ── Preview resize drag ───────────────────────────────────
   const handlePreviewDividerMouseDown = useCallback((e) => {
     e.preventDefault()
