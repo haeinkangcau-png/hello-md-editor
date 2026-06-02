@@ -4,31 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>개발 일정 개발 일정</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f7f6f2;
+  --bg: #f4f6f9;
   --surface: #ffffff;
-  --border: #d8d5cc;
-  --border-light: #ebe8e0;
-  --text-primary: #1a1917;
-  --text-secondary: #6b6960;
-  --text-muted: #a09d95;
-  --today: #d64c2e;
-  --milestone: #3a3835;
-  --label-w: 180px;
+  --elevation: #eef1f6;
+  --border: rgba(6,25,50,.16);
+  --border-light: rgba(6,25,50,.08);
+  --grid-minor: rgba(6,25,50,.04);
+  --grid-major: rgba(6,25,50,.1);
+  --text-primary: #061932;
+  --text-secondary: rgba(6,25,50,.62);
+  --text-muted: rgba(6,25,50,.42);
+  --today: #1077fe;
+  --milestone: #1e7d40;
+  --accent: #1077fe;
+  --confirm: #1e7d40;
+  --error: #e02b16;
+  --label-w: 188px;
+  --font: -apple-system, "Pretendard", "Apple SD Gothic Neo", sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", "IBM Plex Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   background: var(--bg);
-  font-family: 'IBM Plex Sans KR', sans-serif;
+  font-family: var(--font);
   color: var(--text-primary);
   min-height: 100vh;
-  padding: 40px 32px 60px;
+  padding: 32px 28px 56px;
+  -webkit-font-smoothing: antialiased;
 }
+.num,.label-sub,.week-header,.month-header,.today-tag,.cal-header span,.cal-day,.cal-hint{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
 header { margin-bottom: 20px; }
-header h1 { font-size: 20px; font-weight: 500; letter-spacing: -0.02em; }
-header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
+header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.4; }
+header p { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
 
 /* ── 에디터 ── */
 .editor-wrap {
@@ -40,14 +49,16 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 }
 .editor-toggle {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 14px;
-  background: #f2f0eb;
+  padding: 10px 14px;
+  background: var(--elevation);
   cursor: pointer;
   user-select: none;
   border-bottom: 1px solid var(--border);
+  transition: background .15s;
 }
+.editor-toggle:hover { background: #e3e8ef; }
 .editor-toggle span { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
-.editor-toggle .arrow { font-size: 10px; color: var(--text-muted); transition: transform 0.2s; }
+.editor-toggle .arrow { font-size: 9px; color: var(--text-muted); transition: transform 0.2s; }
 .editor-toggle .arrow.open { transform: rotate(180deg); }
 .editor-body { display: none; }
 .editor-body.open { display: flex; gap: 0; }
@@ -55,7 +66,7 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   flex: 1;
   min-height: 360px;
   padding: 14px;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   font-size: 12px;
   line-height: 1.7;
   border: none;
@@ -73,17 +84,18 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   font-size: 11px;
   color: var(--text-secondary);
   line-height: 1.7;
-  background: #faf9f6;
+  background: #f7f9fc;
   overflow-y: auto;
 }
-.editor-help h3 { font-size: 11px; font-weight: 500; color: var(--text-primary); margin: 8px 0 4px; }
+.editor-help h3 { font-size: 11px; font-weight: 700; color: var(--text-primary); margin: 10px 0 4px; }
 .editor-help h3:first-child { margin-top: 0; }
 .editor-help code {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   font-size: 10px;
-  background: #f0eee7;
+  background: rgba(16,119,254,.1);
+  color: #0a5bd0;
   padding: 1px 4px;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 /* ── 툴바 ── */
@@ -98,14 +110,14 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 }
 .toggle-btn {
   padding: 6px 16px; font-size: 12px;
-  font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 400;
+  font-family: var(--font); font-weight: 400;
   color: var(--text-secondary); background: var(--surface);
   border: none; border-right: 1px solid var(--border);
   cursor: pointer; transition: background 0.15s, color 0.15s; white-space: nowrap;
 }
 .toggle-btn:last-child { border-right: none; }
-.toggle-btn:hover { background: #f2f0eb; }
-.toggle-btn.active { background: var(--text-primary); color: var(--surface); font-weight: 500; }
+.toggle-btn:hover { background: var(--elevation); color: var(--text-primary); }
+.toggle-btn.active { background: #061932; color: #fff; font-weight: 500; }
 .toggle-btn:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
 .view-toggle.disabled { opacity: 0.4; }
 .range-groups { display: flex; gap: 6px; align-items: center; }
@@ -119,14 +131,14 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 12px;
-  font-family: 'IBM Plex Sans KR', sans-serif;
+  font-family: var(--font);
 }
 .manual-range label {
   display: flex; align-items: center; gap: 4px;
   font-size: 11px; color: var(--text-secondary);
 }
 .manual-range input[type="date"] {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   font-size: 11px;
   padding: 4px 6px;
   border: 1px solid var(--border);
@@ -138,7 +150,7 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   padding: 4px 12px;
   font-size: 11px;
   font-weight: 500;
-  font-family: 'IBM Plex Sans KR', sans-serif;
+  font-family: var(--font);
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--text-primary);
@@ -146,14 +158,14 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   cursor: pointer;
   transition: background .1s;
 }
-.manual-apply:hover { background: #333; }
+.manual-apply:hover { background: #0d2848; }
 .toolbar-actions {
   display: flex; gap: 4px; margin-left: auto;
 }
 .action-btn {
   padding: 5px 10px;
   font-size: 12px;
-  font-family: 'IBM Plex Sans KR', sans-serif;
+  font-family: var(--font);
   font-weight: 500;
   color: var(--text-secondary);
   background: var(--surface);
@@ -163,7 +175,7 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   transition: background .1s, color .1s, border-color .1s;
   white-space: nowrap;
 }
-.action-btn:hover { background: #f2f0eb; color: var(--text-primary); border-color: var(--text-muted); }
+.action-btn:hover { background: var(--elevation); color: var(--text-primary); border-color: var(--text-muted); }
 
 /* ── 차트 ── */
 .chart-scroll {
@@ -172,31 +184,32 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   border-radius: 8px;
   overflow-x: auto; overflow-y: visible;
   position: relative;
+  box-shadow: 0 1px 2px rgba(6,25,50,.06);
 }
 .chart-inner { display: flex; flex-direction: column; position: relative; }
 
 .chart-row { display: flex; min-height: 0; }
-.chart-row.row-date-header { border-bottom: 2px solid var(--border); background: #f2f0eb; position: sticky; top: 0; z-index: 20; }
-.chart-row.row-product { border-bottom: 2px solid var(--border); background: #eae8e2; }
-.chart-row.row-section { border-bottom: 1px solid var(--border-light); background: #f7f6f2; }
+.chart-row.row-date-header { border-bottom: 1px solid var(--border); background: var(--elevation); position: sticky; top: 0; z-index: 20; box-shadow: inset 0 -1px 0 var(--border); }
+.chart-row.row-product { border-bottom: 1px solid var(--border); background: #eef1f6; }
+.chart-row.row-section { border-bottom: 1px solid var(--border-light); background: #f7f9fc; }
 .chart-row.row-data { border-bottom: 1px solid var(--border-light); min-height: 40px; }
 
 .label-cell {
   width: var(--label-w); min-width: var(--label-w); max-width: var(--label-w);
-  border-right: 2px solid var(--border);
+  border-right: 1px solid var(--border);
   position: sticky; left: 0; z-index: 15; background: inherit;
 }
-.chart-row.row-date-header .label-cell { background: #f2f0eb; }
-.chart-row.row-product .label-cell { background: #eae8e2; }
-.chart-row.row-section .label-cell { background: #f7f6f2; }
+.chart-row.row-date-header .label-cell { background: var(--elevation); }
+.chart-row.row-product .label-cell { background: #eef1f6; }
+.chart-row.row-section .label-cell { background: #f7f9fc; }
 .chart-row.row-data .label-cell { background: var(--surface); }
 
-.label-inner { padding: 0 12px; display: flex; flex-direction: column; justify-content: center; height: 100%; gap: 1px; }
-.label-main { font-size: 12px; font-weight: 500; }
-.label-sub { font-size: 10px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; }
-.section-title { font-size: 10px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 6px 12px; cursor: pointer; user-select: none; }
-.product-title { font-size: 12px; font-weight: 500; color: var(--text-primary); padding: 8px 12px; cursor: pointer; user-select: none; }
-.product-badge { display: inline-block; font-size: 9px; font-weight: 500; padding: 1px 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; color: #fff; }
+.label-inner { padding: 0 12px; display: flex; flex-direction: column; justify-content: center; height: 100%; gap: 2px; }
+.label-main { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.label-sub { font-size: 10px; color: var(--text-muted); font-family: var(--mono); }
+.section-title { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 6px 12px; cursor: pointer; user-select: none; }
+.product-title { font-size: 13px; font-weight: 700; color: var(--text-primary); padding: 8px 12px; cursor: pointer; user-select: none; display: flex; align-items: center; }
+.product-badge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .03em; padding: 2px 6px; border-radius: 3px; margin-left: 8px; vertical-align: middle; color: #fff; }
 .fold-arrow {
   display: inline-block; width: 12px;
   font-size: 9px; text-align: center;
@@ -208,15 +221,15 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 .chart-row.row-summary {
   min-height: 28px;
   border-bottom: 1px solid var(--border-light);
-  background: #faf9f6;
+  background: #fafbfd;
 }
 
-.month-header { font-size: 11px; font-weight: 500; font-family: 'IBM Plex Mono', monospace; color: var(--text-secondary); padding: 6px 0 0 8px; white-space: nowrap; }
-.week-header { font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: var(--text-muted); padding: 4px 0; text-align: center; white-space: nowrap; }
+.month-header { font-size: 11px; font-weight: 500; color: var(--text-secondary); padding: 6px 0 0 8px; white-space: nowrap; }
+.week-header { font-size: 10px; color: var(--text-muted); padding: 4px 0; text-align: center; white-space: nowrap; }
 
 .gl { position: absolute; top: 0; bottom: 0; pointer-events: none; z-index: 0; }
-.gl-major { width: 2px; background: var(--border); z-index: 1; }
-.gl-minor { width: 1px; background: var(--border-light); }
+.gl-major { width: 1px; background: var(--grid-major); z-index: 1; }
+.gl-minor { width: 1px; background: var(--grid-minor); }
 
 .bar {
   position: absolute; top: 50%; transform: translateY(-50%);
@@ -224,9 +237,9 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   display: flex; align-items: center; padding: 0 8px;
   font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden;
   z-index: 2; border-width: 1px; border-style: solid;
-  cursor: pointer; transition: filter .1s;
+  cursor: pointer; transition: filter .1s, box-shadow .1s;
 }
-.bar:hover { filter: brightness(0.94); }
+.bar:hover { filter: brightness(0.96); box-shadow: 0 2px 6px rgba(6,25,50,.12); }
 .bar-cert {
   position: absolute; top: 50%; transform: translateY(-50%);
   height: 22px; border-radius: 3px;
@@ -234,13 +247,13 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; z-index: 2;
   cursor: pointer; transition: filter .1s;
 }
-.bar-cert:hover { filter: brightness(0.94); }
+.bar-cert:hover { filter: brightness(0.96); }
 .bar-tbd-wrap {
   position: absolute; top: 50%; transform: translateY(-50%);
   height: 22px; z-index: 2; overflow: hidden; border-radius: 3px;
   cursor: pointer;
 }
-.bar-tbd-wrap:hover .bar-tbd { filter: brightness(0.94); }
+.bar-tbd-wrap:hover .bar-tbd { filter: brightness(0.96); }
 .bar-tbd {
   width: 100%; height: 100%;
   display: flex; align-items: center; padding: 0 8px;
@@ -254,18 +267,20 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 }
 .tbd-dots {
   position: absolute; top: 50%; transform: translateY(-50%);
-  font-size: 14px; color: #a09d95; z-index: 4; line-height: 1;
-  font-family: 'IBM Plex Mono', monospace; letter-spacing: 2px;
+  font-size: 14px; color: var(--text-muted); z-index: 4; line-height: 1;
+  font-family: var(--mono); letter-spacing: 2px;
 }
 .ms {
   position: absolute; top: 50%; z-index: 3;
   transform: translateY(-50%) translateX(-50%) rotate(45deg);
   width: 10px; height: 10px; background: var(--milestone); border-radius: 1px;
+  box-shadow: 0 0 0 2px var(--surface);
 }
 .ms-submit {
   position: absolute; top: 50%; z-index: 4;
   transform: translateY(-50%) translateX(-50%) rotate(45deg);
-  width: 13px; height: 13px; border-radius: 1px;
+  width: 12px; height: 12px; border-radius: 1px;
+  box-shadow: 0 0 0 2px var(--surface);
 }
 /* ── 단일 날짜 이벤트 마커 ── */
 .event-marker {
@@ -282,7 +297,7 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 .event-label {
   font-size: 11px; font-weight: 500;
   white-space: nowrap;
-  font-family: 'IBM Plex Sans KR', sans-serif;
+  font-family: var(--font);
 }
 .today-line {
   position: absolute; top: 0; bottom: 0; width: 2px;
@@ -291,7 +306,7 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 .today-tag {
   position: absolute; top: 2px; transform: translateX(-50%);
   background: var(--today); color: #fff;
-  font-size: 9px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; font-family: var(--mono);
   padding: 2px 5px; border-radius: 3px; white-space: nowrap; z-index: 12;
 }
 
@@ -301,10 +316,10 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 .cal-popup {
   position: fixed;
   z-index: 200;
-  background: var(--surface);
+  background: var(--elevation);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  box-shadow: 0 6px 20px rgba(6,25,50,.12);
   padding: 10px;
   width: 252px;
   display: none;
@@ -323,14 +338,14 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   transition: background .1s, color .1s;
   z-index: 1;
 }
-.cal-close:hover { background: #eae8e2; color: var(--text-primary); }
+.cal-close:hover { background: var(--surface); color: var(--text-primary); }
 .cal-dates {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-bottom: 10px;
   padding: 6px 8px;
-  background: #f7f6f2;
+  background: var(--surface);
   border: 1px solid var(--border-light);
   border-radius: 6px;
 }
@@ -345,8 +360,8 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   cursor: pointer;
   transition: background .1s;
 }
-.cal-date-item:hover { background: #eae8e2; }
-.cal-date-item.active { background: var(--text-primary); }
+.cal-date-item:hover { background: var(--elevation); }
+.cal-date-item.active { background: #061932; }
 .cal-date-item.active .cal-date-label { color: #ffffff99; }
 .cal-date-item.active .cal-date-value { color: #fff; }
 .cal-date-label {
@@ -355,12 +370,12 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   text-transform: uppercase;
   letter-spacing: .05em;
   color: var(--text-muted);
-  font-family: 'IBM Plex Sans KR', sans-serif;
+  font-family: var(--font);
 }
 .cal-date-value {
   font-size: 11px;
   font-weight: 500;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   color: var(--text-primary);
 }
 .cal-date-arrow {
@@ -374,7 +389,6 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 }
 .cal-header span {
   font-size: 13px; font-weight: 500;
-  font-family: 'IBM Plex Mono', monospace;
   color: var(--text-primary);
   min-width: 100px; text-align: center;
 }
@@ -384,15 +398,15 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   border: 1px solid var(--border-light); border-radius: 4px;
   background: var(--surface);
   cursor: pointer; font-size: 12px; color: var(--text-secondary);
-  transition: background .1s;
+  transition: background .1s, color .1s;
 }
-.cal-nav:hover { background: #f2f0eb; }
+.cal-nav:hover { background: var(--surface); color: var(--text-primary); }
 .cal-dow {
   display: grid; grid-template-columns: repeat(7, 1fr);
   gap: 0; margin-bottom: 2px;
 }
 .cal-dow span {
-  font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
   color: var(--text-muted); text-align: center; padding: 2px 0;
 }
 .cal-grid {
@@ -402,54 +416,29 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 .cal-day {
   width: 32px; height: 28px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-family: 'IBM Plex Mono', monospace;
-  color: var(--text-primary);
+  font-size: 12px;
+  color: var(--text-secondary);
   border-radius: 4px;
   cursor: pointer;
-  transition: background .1s;
+  transition: background .1s, color .1s;
 }
-.cal-day:hover { background: #eae8e2; }
-.cal-day.other { color: var(--text-muted); }
-.cal-day.today { background: var(--today); color: #fff; font-weight: 500; }
-.cal-day.today:hover { background: #c4432a; }
-.cal-day.selected { background: var(--text-primary); color: #fff; font-weight: 500; }
-.cal-day.selected:hover { background: #333; }
+.cal-day:hover { background: var(--surface); color: var(--text-primary); }
+.cal-day.other { color: var(--text-muted); opacity: .55; }
+.cal-day.today { background: var(--accent); color: #fff; font-weight: 500; }
+.cal-day.today:hover { background: #0c63d4; }
+.cal-day.selected { background: #061932; color: #fff; font-weight: 500; }
+.cal-day.selected:hover { background: #0d2848; }
 .cal-day.mon { color: var(--text-primary); font-weight: 500; }
 .cal-hint {
   margin-top: 6px; padding-top: 6px;
   border-top: 1px solid var(--border-light);
   font-size: 10px; color: var(--text-muted);
   text-align: center;
-  font-family: 'IBM Plex Mono', monospace;
 }
 .cal-hint code {
-  font-size: 10px; background: #eae8e2; padding: 1px 4px; border-radius: 2px;
+  font-size: 10px; background: rgba(16,119,254,.1); color: #0a5bd0; padding: 1px 4px; border-radius: 3px;
 }
-.cal-quick {
-  display: flex; gap: 4px; margin-top: 8px;
-}
-.cal-q-group {
-  flex: 1; display: flex; gap: 2px;
-}
-.cal-q-btn {
-  flex: 1;
-  padding: 5px 0;
-  font-size: 10px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 500;
-  color: var(--text-secondary);
-  background: #f2f0eb;
-  border: 1px solid var(--border-light);
-  border-radius: 3px;
-  cursor: pointer;
-  transition: background .1s, color .1s;
-  white-space: nowrap;
-}
-.cal-q-btn:hover { background: #e6e3da; color: var(--text-primary); }
-.cal-q-btn.minus { color: var(--today); }
-.cal-q-btn.minus:hover { background: #fce8e4; }
-.cal-q-btn.plus { color: var(--teal-tx, #0d5c42); }
-.cal-q-btn.plus:hover { background: #e3f5ee; }
+
 .cal-duration {
   margin-top: 8px; padding-top: 8px;
   border-top: 1px solid var(--border-light);
@@ -465,13 +454,13 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 }
 .cal-dur-input {
   width: 36px; padding: 4px 4px;
-  font-size: 12px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; font-family: var(--mono);
   text-align: center;
   border: 1px solid var(--border); border-radius: 4px;
   background: var(--surface);
   outline: none;
 }
-.cal-dur-input:focus { border-color: var(--text-muted); }
+.cal-dur-input:focus { border-color: var(--accent); }
 .cal-dur-units {
   display: flex; gap: 0;
   border: 1px solid var(--border); border-radius: 4px;
@@ -479,7 +468,7 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 }
 .cal-dur-unit {
   padding: 4px 7px;
-  font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; font-family: var(--mono);
   font-weight: 500;
   color: var(--text-secondary);
   background: var(--surface);
@@ -488,18 +477,18 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   transition: background .1s, color .1s;
 }
 .cal-dur-unit:last-child { border-right: none; }
-.cal-dur-unit:hover { background: #f2f0eb; }
-.cal-dur-unit.active { background: var(--text-primary); color: #fff; }
+.cal-dur-unit:hover { background: var(--elevation); }
+.cal-dur-unit.active { background: #061932; color: #fff; }
 .cal-dur-apply {
   padding: 4px 8px;
   font-size: 11px; font-weight: 500;
   color: #fff;
-  background: var(--text-primary);
+  background: var(--accent);
   border: none; border-radius: 4px;
   cursor: pointer;
   transition: background .1s;
 }
-.cal-dur-apply:hover { background: #333; }
+.cal-dur-apply:hover { background: #0c63d4; }
 
 /* 텍스트에리어 래퍼 (캘린더 위치 기준) */
 .editor-area-wrap {
@@ -529,7 +518,7 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   max-width: 560px;
   margin: 60px auto;
   text-align: center;
-  font-family: 'IBM Plex Sans KR', sans-serif;
+  font-family: var(--font);
 }
 .schedule-guide .guide-icon { font-size: 48px; margin-bottom: 16px; }
 .schedule-guide h2 { font-size: 18px; font-weight: 500; margin-bottom: 8px; color: var(--text-primary); }
@@ -543,11 +532,11 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 }
 .schedule-guide .guide-syntax h3 { font-size: 13px; font-weight: 500; margin-bottom: 12px; color: var(--text-primary); }
 .schedule-guide pre {
-  background: #f2f0eb;
+  background: var(--elevation);
   border: 1px solid var(--border-light);
   border-radius: 6px;
   padding: 14px 16px;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   font-size: 11.5px;
   line-height: 1.7;
   overflow-x: auto;
@@ -559,12 +548,20 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 .schedule-guide .guide-notes strong { color: var(--text-primary); }
 .schedule-guide .guide-notes ul { padding-left: 18px; margin: 0; }
 .schedule-guide .guide-notes code {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--mono);
   font-size: 10.5px;
-  background: #f0eee7;
+  background: rgba(16,119,254,.1);
+  color: #0a5bd0;
   padding: 1px 5px;
   border-radius: 3px;
 }
+
+/* scrollbars */
+.chart-scroll::-webkit-scrollbar,.editor-area::-webkit-scrollbar,.editor-help::-webkit-scrollbar{height:10px;width:10px;}
+.chart-scroll::-webkit-scrollbar-track,.editor-area::-webkit-scrollbar-track,.editor-help::-webkit-scrollbar-track{background:transparent;}
+.chart-scroll::-webkit-scrollbar-thumb,.editor-area::-webkit-scrollbar-thumb,.editor-help::-webkit-scrollbar-thumb{background:rgba(6,25,50,.14);border-radius:5px;border:2px solid transparent;background-clip:padding-box;}
+.chart-scroll::-webkit-scrollbar-thumb:hover,.editor-area::-webkit-scrollbar-thumb:hover,.editor-help::-webkit-scrollbar-thumb:hover{background:rgba(6,25,50,.24);background-clip:padding-box;}
+
 </style>
 </head>
 <body>
@@ -674,18 +671,7 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
   </div>
   <div class="cal-dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
   <div class="cal-grid" id="calGrid"></div>
-  <div class="cal-quick">
-    <div class="cal-q-group">
-      <button class="cal-q-btn minus" data-add="-sprint">−Sprint</button>
-      <button class="cal-q-btn minus" data-add="-week">−Week</button>
-      <button class="cal-q-btn minus" data-add="-month">−Month</button>
-    </div>
-    <div class="cal-q-group">
-      <button class="cal-q-btn plus" data-add="+sprint">+Sprint</button>
-      <button class="cal-q-btn plus" data-add="+week">+Week</button>
-      <button class="cal-q-btn plus" data-add="+month">+Month</button>
-    </div>
-  </div>
+
   <div class="cal-duration" id="calDuration">
     <span class="cal-dur-label">기간으로 설정</span>
     <div class="cal-dur-row">
@@ -704,16 +690,16 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-
 <script>
 // ── 색상 팔레트 (제품별 자동 할당) ──
 const PALETTE = [
-  { bg:'#eaf2fb', bd:'#3a8ad4', tx:'#1a4e80' },   // blue
-  { bg:'#e3f5ee', bd:'#1f9e74', tx:'#0d5c42' },   // teal
-  { bg:'#faeae5', bd:'#d65a30', tx:'#8c3618' },   // coral
-  { bg:'#eeedfd', bd:'#7c74dc', tx:'#3d3692' },   // purple
-  { bg:'#fbeaf0', bd:'#d4537e', tx:'#72243e' },   // pink
-  { bg:'#e8f4f0', bd:'#3a9d8f', tx:'#1a544a' },   // cyan
-  { bg:'#f5f0e6', bd:'#9e8a5a', tx:'#5c4f2e' },   // khaki
+  { bg:'#dcebfb', bd:'#2f7fc9', tx:'#13436f' },   // blue
+  { bg:'#d6f0e6', bd:'#1b9270', tx:'#0a4d37' },   // teal
+  { bg:'#f7e2d8', bd:'#cf5a2f', tx:'#7a3017' },   // coral
+  { bg:'#e6e3fa', bd:'#6d64d6', tx:'#312a7c' },   // purple
+  { bg:'#f9dfeb', bd:'#cc4f79', tx:'#651f35' },   // pink
+  { bg:'#d9eeec', bd:'#2f978c', tx:'#134640' },   // cyan
+  { bg:'#efe7d2', bd:'#94804f', tx:'#4d4222' },   // khaki
 ];
-const CERT_STYLE = { bg:'#faeeda', bd:'#ba7517', tx:'#633806' };
-const TBD_STYLE  = { bg:'#f1efe8', bd:'#888780', tx:'#5f5e5a' };
+const CERT_STYLE = { bg:'#f6e6c8', bd:'#b06f12', tx:'#573104' };
+const TBD_STYLE  = { bg:'#e9edf1', bd:'#7c8590', tx:'#4c5662' };
 
 // ── 파서 ──
 function parseMD(md) {
@@ -1570,7 +1556,8 @@ function openCal(x, y, dateStr, showDates) {
     calDates.style.display = 'flex';
     calStartValue.textContent = calCtx.startDate || '—';
     calEndValue.textContent = calCtx.endDate || '—';
-    calDurEl.classList.add('show');
+    if (calDateMode === 'start') calDurEl.classList.add('show');
+    else calDurEl.classList.remove('show');
   } else {
     calDates.style.display = 'none';
     calDurEl.classList.remove('show');
@@ -1594,6 +1581,10 @@ function updateDateItemActive() {
 function switchDateMode(mode) {
   calDateMode = mode;
   updateDateItemActive();
+
+  // 끝 탭에서는 기간 설정 숨김
+  if (mode === 'end') calDurEl.classList.remove('show');
+  else if (calCtx && calCtx.source === 'chart') calDurEl.classList.add('show');
 
   if (calCtx && calCtx.source === 'chart') {
     const dateStr = mode === 'start' ? calCtx.startDate : calCtx.endDate;
@@ -1707,54 +1698,7 @@ function snapDate(d) {
   else snapToFriday(d);
 }
 
-document.querySelector('.cal-quick').addEventListener('click', (e) => {
-  const btn = e.target.closest('.cal-q-btn');
-  if (!btn || !calSelectedDate) return;
 
-  const d = new Date(calSelectedDate);
-  const op = btn.dataset.add; // e.g. "+sprint", "-week"
-  const sign = op.startsWith('-') ? -1 : 1;
-  const unit = op.replace(/^[+-]/, '');
-
-  if (unit === 'sprint') d.setDate(d.getDate() + sign * 14);
-  else if (unit === 'week') d.setDate(d.getDate() + sign * 7);
-  else if (unit === 'month') d.setMonth(d.getMonth() + sign);
-
-  snapDate(d);
-
-  const newDate = fmtDate(d);
-  const ta = document.getElementById('mdInput');
-
-  if (calCtx && calCtx.source === 'editor') {
-    const before = ta.value.substring(0, calCtx.start);
-    const after  = ta.value.substring(calCtx.end);
-    ta.value = before + newDate + after;
-    calCtx.end = calCtx.start + newDate.length;
-    ta.setSelectionRange(calCtx.start, calCtx.end);
-    ta.focus();
-  }
-
-  if (calCtx && calCtx.source === 'chart') {
-    const oldDate = calDateMode === 'start' ? calCtx.startDate : calCtx.endDate;
-    replaceChartDate(ta, oldDate, newDate);
-  }
-
-  if (calCtx && calCtx.source === 'insert') {
-    const before = ta.value.substring(0, calCtx.start);
-    const after  = ta.value.substring(calCtx.end);
-    ta.value = before + newDate + after;
-    const newEnd = calCtx.start + newDate.length;
-    ta.setSelectionRange(newEnd, newEnd);
-    ta.focus();
-    calCtx = { source: 'editor', start: calCtx.start, end: newEnd };
-  }
-
-  calSelectedDate = d;
-  showCal(d.getFullYear(), d.getMonth(), d);
-
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => render(currentMode), 150);
-});
 
 // ── 기간으로 설정 (Duration) ──
 const calDurEl = document.getElementById('calDuration');

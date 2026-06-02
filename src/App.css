@@ -1053,27 +1053,121 @@ kbd {
   pointer-events: none;
 }
 
-/* ── 스케줄 버튼 ────────────────────────────────────────────── */
-.schedule-btn {
+/* ── 스케줄 버튼 그룹 ────────────────────────────────────────── */
+.schedule-btn-group {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: visible;
+  position: relative;
+}
+.schedule-btn-main {
   display: flex;
   align-items: center;
   gap: 5px;
   padding: 3px 9px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
   background: var(--color-bg);
+  border: none;
+  border-right: 1px solid var(--color-border);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   font-size: 11px;
   font-weight: 500;
   font-family: var(--font-ui);
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: background .15s, color .15s, border-color .15s;
+  transition: background .15s, color .15s;
   white-space: nowrap;
 }
-.schedule-btn:hover {
-  background: #e8f4f0;
-  border-color: #3a9d8f;
-  color: #1a544a;
+.schedule-btn-main:hover { background: #e8f4f0; color: #1a544a; }
+.schedule-btn-arrow {
+  display: flex;
+  align-items: center;
+  padding: 3px 6px;
+  background: var(--color-bg);
+  border: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 9px;
+  transition: background .15s, color .15s;
+}
+.schedule-btn-arrow:hover { background: #e8f4f0; color: #1a544a; }
+.schedule-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  min-width: 160px;
+  z-index: 200;
+  overflow: hidden;
+}
+.schedule-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: left;
+  transition: background .1s;
+}
+.schedule-dropdown button:hover { background: var(--color-border-light); }
+
+/* ── 스케줄 스플릿 패널 ──────────────────────────────────────── */
+.schedule-split-divider {
+  width: 4px;
+  background: var(--color-border-light);
+  cursor: ew-resize;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.schedule-split-divider:hover { background: var(--color-border); }
+.schedule-split-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 300px;
+  overflow: hidden;
+}
+.schedule-split-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  background: var(--color-toolbar);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.schedule-split-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  padding: 0 3px;
+  border-radius: 3px;
+  transition: background .1s, color .1s;
+  line-height: 1;
+}
+.schedule-split-close:hover {
+  background: var(--color-border-light);
+  color: var(--color-text);
+}
+.schedule-split-iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
 }
 
 /* ── 날짜 하이라이트 (클릭 가능 표시) ────────────────────────── */

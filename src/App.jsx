@@ -25,6 +25,8 @@ export default function App() {
   const [sidebarSplit, setSidebarSplit] = useState(60) // file-tree height %
   const [showPreview, setShowPreview] = useState(false)
   const [previewSplit, setPreviewSplit] = useState(50)  // editor width %
+  const [scheduleSplit, setScheduleSplit] = useState(false)
+  const [scheduleSplitRatio, setScheduleSplitRatio] = useState(55) // editor side %
   const [recentFiles, setRecentFiles] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('md-viewer-recent') || '[]')
@@ -62,8 +64,44 @@ export default function App() {
   const mainRef = useRef(null)
   const isDraggingDivider = useRef(false)
   const isDraggingPreview = useRef(false)
+  const isDraggingSchedule = useRef(false)
   contentRef.current = fileContent
   currentFileRef.current = currentFile
+
+  // ── Schedule split drag ───────────────────────────────────
+  const handleScheduleDividerMouseDown = useCallback((e) => {
+    e.preventDefault()
+    isDraggingSchedule.current = true
+    document.body.style.cursor = 'ew-resize'
+    document.body.style.userSelect = 'none'
+    // iframe이 mousemove를 가로채지 못하도록 차단
+    const iframes = document.querySelectorAll('iframe')
+    iframes.forEach(f => f.style.pointerEvents = 'none')
+    const onMouseMove = (e) => {
+      if (!isDraggingSchedule.current || !mainRef.current) return
+      const rect = mainRef.current.getBoundingClientRect()
+      const pct = ((e.clientX - rect.left) / rect.width) * 100
+      setScheduleSplitRatio(Math.max(25, Math.min(75, pct)))
+    }
+    const onMouseUp = () => {
+      isDraggingSchedule.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      iframes.forEach(f => f.style.pointerEvents = '')
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }, [])
+
+  const handleOpenScheduleSplit = useCallback(() => {
+    setScheduleSplit(true)
+  }, [])
+
+  const handleCloseScheduleSplit = useCallback(() => {
+    setScheduleSplit(false)
+  }, [])
 
   // ── Preview resize drag ───────────────────────────────────
   const handlePreviewDividerMouseDown = useCallback((e) => {
@@ -562,7 +600,13 @@ export default function App() {
           {/* Editor panel */}
           <div
             className="editor-panel"
-            style={showPreview && currentFile && !isHtml ? { width: `${previewSplit}%`, flex: 'none' } : undefined}
+            style={
+              scheduleSplit && currentFile && !isHtml
+                ? { width: `${scheduleSplitRatio}%`, flex: 'none' }
+                : showPreview && currentFile && !isHtml
+                  ? { width: `${previewSplit}%`, flex: 'none' }
+                  : undefined
+            }
           >
             {fileLoading ? (
               <div className="loading">
@@ -587,6 +631,7 @@ export default function App() {
                   onHeadingsChange={setHeadings}
                   onSave={handleSave}
                   currentFilePath={currentFile.path}
+                  onOpenScheduleSplit={handleOpenScheduleSplit}
                 />
               )
             ) : (
@@ -636,7 +681,7 @@ export default function App() {
           </div>
 
           {/* Preview panel (split view) */}
-          {showPreview && currentFile && !isHtml && (
+          {!scheduleSplit && showPreview && currentFile && !isHtml && (
             <>
               <div className="preview-divider" onMouseDown={handlePreviewDividerMouseDown} />
               <div className="preview-panel" style={{ flex: 1 }}>
@@ -644,6 +689,23 @@ export default function App() {
                   content={fileContent}
                   scrollRef={previewBodyRef}
                   currentFilePath={currentFile?.path}
+                />
+              </div>
+            </>
+          )}
+
+          {scheduleSplit && (
+            <>
+              <div className="schedule-split-divider" onMouseDown={handleScheduleDividerMouseDown} />
+              <div className="schedule-split-panel" style={{ flex: 1, minWidth: 0 }}>
+                <div className="schedule-split-header">
+                  <span>스케줄</span>
+                  <button className="schedule-split-close" onClick={handleCloseScheduleSplit} title="닫기">✕</button>
+                </div>
+                <iframe
+                  src="./schedule.html"
+                  className="schedule-split-iframe"
+                  title="스케줄"
                 />
               </div>
             </>

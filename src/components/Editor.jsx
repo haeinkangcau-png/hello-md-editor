@@ -129,7 +129,7 @@ function meetingTemplate() {
 }
 
 const SNIPPETS = [
-  { trigger: '/오늘', replace: () => todayStr() },
+  { trigger: '/날짜', replace: () => todayStr() },
   { trigger: '/회의', replace: () => meetingTemplate() },
 ]
 
@@ -148,7 +148,7 @@ function extractHeadings(editor) {
 }
 
 const Editor = forwardRef(function Editor(
-  { initialContent, onContentChange, onHeadingsChange, onSave, currentFilePath },
+  { initialContent, onContentChange, onHeadingsChange, onSave, currentFilePath, onOpenScheduleSplit },
   ref
 ) {
   const isSettingContent = useRef(false)
@@ -157,6 +157,8 @@ const Editor = forwardRef(function Editor(
   const [editMode, setEditMode] = useState('wysiwyg') // 'wysiwyg' | 'raw'
   const [rawContent, setRawContent] = useState('')
   const [copied, setCopied] = useState(false)
+  const [scheduleDropdownOpen, setScheduleDropdownOpen] = useState(false)
+  const scheduleBtnGroupRef = useRef(null)
   const scheduleChannelRef = useRef(null)
   const rawContentRef = useRef('')
   const [calState, setCalState] = useState(null) // { x, y, dateStr, onApply }
@@ -655,10 +657,8 @@ const Editor = forwardRef(function Editor(
     })
   }, [editor])
 
-  const handleOpenSchedule = useCallback(async () => {
-    // TipTap getMarkdown()은 특수문자를 이스케이프하므로 해제
+  const ensureScheduleChannel = useCallback(() => {
     const unescapeMd = (s) => s.replace(/\\([\[\]~*_`|\\<>])/g, '$1')
-
     if (!scheduleChannelRef.current) {
       const ch = new BroadcastChannel('md-schedule-sync')
       ch.onmessage = (e) => {
@@ -673,15 +673,36 @@ const Editor = forwardRef(function Editor(
       }
       scheduleChannelRef.current = ch
     }
-    // 현재 MD 콘텐츠를 IPC로 직접 전달
+    const unescapeMd2 = (s) => s.replace(/\\([\[\]~*_`|\\<>])/g, '$1')
     const initialMd = editModeRef.current === 'raw'
       ? rawContentRef.current
-      : unescapeMd(editorRef2.current?.storage.markdown.getMarkdown() || '')
-    // 파일명 추출
+      : unescapeMd2(editorRef2.current?.storage.markdown.getMarkdown() || '')
     const fp = currentFilePathRef.current || ''
     const fileName = fp ? fp.replace(/\\/g, '/').split('/').pop().replace(/\.md$/i, '') : '스케줄'
-    await openScheduleWindow(initialMd, fileName)
+    return { initialMd, fileName }
   }, [])
+
+  const handleOpenSchedule = useCallback(async () => {
+    const { initialMd, fileName } = ensureScheduleChannel()
+    await openScheduleWindow(initialMd, fileName)
+  }, [ensureScheduleChannel])
+
+  const handleOpenScheduleSplitAction = useCallback(() => {
+    ensureScheduleChannel()
+    onOpenScheduleSplit?.()
+  }, [ensureScheduleChannel, onOpenScheduleSplit])
+
+  // close schedule dropdown on outside click
+  useEffect(() => {
+    if (!scheduleDropdownOpen) return
+    const handler = (e) => {
+      if (scheduleBtnGroupRef.current && !scheduleBtnGroupRef.current.contains(e.target)) {
+        setScheduleDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [scheduleDropdownOpen])
 
   const handleCopyAll = useCallback(async () => {
     const md = editMode === 'wysiwyg'
@@ -699,9 +720,9 @@ const Editor = forwardRef(function Editor(
     const ta = e.target
     const pos = ta.selectionStart
     const before = val.slice(0, pos)
-    // 스니펫 치환: /오늘, /회의
+    // 스니펫 치환: /날짜, /회의
     const snippets = [
-      { trigger: '/오늘', len: 3, replace: todayStr },
+      { trigger: '/날짜', len: 3, replace: todayStr },
       { trigger: '/회의', len: 3, replace: meetingTemplate },
     ]
     for (const s of snippets) {
@@ -865,21 +886,47 @@ const Editor = forwardRef(function Editor(
         </div>
 
         <div className="mode-bar-right">
-          <button
-            className="schedule-btn"
-            onClick={handleOpenSchedule}
-            title="스케줄 보기 — 새 창에서 Gantt 차트로 열기"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="16" rx="2"/>
-              <line x1="3" y1="9" x2="21" y2="9"/>
-              <line x1="8" y1="4" x2="8" y2="9"/>
-              <line x1="16" y1="4" x2="16" y2="9"/>
-              <line x1="7" y1="14" x2="11" y2="14"/>
-              <line x1="7" y1="17" x2="15" y2="17"/>
-            </svg>
-            스케줄
-          </button>
+          <div className="schedule-btn-group" ref={scheduleBtnGroupRef}>
+            <button
+              className="schedule-btn-main"
+              onClick={handleOpenSchedule}
+              title="새 창으로 열기"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="16" rx="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="8" y1="4" x2="8" y2="9"/>
+                <line x1="16" y1="4" x2="16" y2="9"/>
+                <line x1="7" y1="14" x2="11" y2="14"/>
+                <line x1="7" y1="17" x2="15" y2="17"/>
+              </svg>
+              스케줄
+            </button>
+            <button
+              className="schedule-btn-arrow"
+              onClick={() => setScheduleDropdownOpen(v => !v)}
+              title="스케줄 보기 옵션"
+            >▾</button>
+            {scheduleDropdownOpen && (
+              <div className="schedule-dropdown">
+                <button onClick={() => { handleOpenSchedule(); setScheduleDropdownOpen(false) }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <polyline points="15 3 21 3 21 9"/>
+                    <line x1="10" y1="14" x2="21" y2="3"/>
+                  </svg>
+                  새 창으로 보기
+                </button>
+                <button onClick={() => { handleOpenScheduleSplitAction(); setScheduleDropdownOpen(false) }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <line x1="12" y1="3" x2="12" y2="21"/>
+                  </svg>
+                  스플릿 뷰로 보기
+                </button>
+              </div>
+            )}
+          </div>
           <button
             className="copy-md-btn"
             onClick={handleCopyAll}

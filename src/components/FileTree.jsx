@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
-import { listFiles, openFolder, revealInExplorer, createFolder, writeFile, renameFile } from '../api'
+import { listFiles, openFolder, revealInExplorer, createFolder, writeFile, renameFile, isWeb } from '../api'
 
 function FileIcon() {
   return (
@@ -707,12 +707,12 @@ const FileTree = forwardRef(function FileTree(
               >
                 새 파일 (.md)
               </button>
-              <button
+              {!isWeb && <button
                 className="context-menu-item"
                 onClick={() => { revealInExplorer(projects[contextMenu.projectIndex].path); setContextMenu(null) }}
               >
                 탐색기에서 열기
-              </button>
+              </button>}
               <button
                 className="context-menu-item"
                 onClick={() => {
@@ -753,12 +753,12 @@ const FileTree = forwardRef(function FileTree(
               >
                 새 파일 (.md)
               </button>
-              <button
+              {!isWeb && <button
                 className="context-menu-item"
                 onClick={() => { revealInExplorer(contextMenu.file.path); setContextMenu(null) }}
               >
                 탐색기에서 열기
-              </button>
+              </button>}
             </>
           )}
 
@@ -776,17 +776,17 @@ const FileTree = forwardRef(function FileTree(
               >
                 이름 변경
               </button>
-              <button
+              {!isWeb && <button
                 className="context-menu-item"
                 onClick={() => { revealInExplorer(contextMenu.file.path); setContextMenu(null) }}
               >
                 탐색기에서 열기
-              </button>
+              </button>}
             </>
           )}
 
           {/* 기본 (최근 문서) 컨텍스트 메뉴 */}
-          {!contextMenu.type && (
+          {!contextMenu.type && !isWeb && (
             <button
               className="context-menu-item"
               onClick={() => { revealInExplorer(contextMenu.file.path); setContextMenu(null) }}
