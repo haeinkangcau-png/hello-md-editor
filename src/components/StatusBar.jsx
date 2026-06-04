@@ -1,4 +1,5 @@
 import React from 'react'
+import { version } from '../../package.json'
 
 const STATUS_MAP = {
   saved: { label: '저장됨', cls: 'saved' },
@@ -36,6 +37,8 @@ export default function StatusBar({ file, saveStatus, autoSave, wordCount }) {
         <span className={`status-autosave ${autoSave ? 'on' : 'off'}`}>
           Auto Save {autoSave ? 'ON' : 'OFF'}
         </span>
+        <span className="status-sep">·</span>
+        <span className="status-version">v{version}</span>
       </div>
     </div>
   )

@@ -1550,6 +1550,12 @@ kbd {
 .status-badge.modified { color: #fde68a; }
 .status-badge.error { color: #fca5a5; }
 
+.status-version {
+  opacity: 0.5;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+}
+
 .status-dot {
   width: 6px;
   height: 6px;
