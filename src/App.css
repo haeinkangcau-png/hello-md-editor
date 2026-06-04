@@ -619,6 +619,59 @@ html, body, #root {
   background: #fff0f0;
 }
 
+.context-menu-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 3px 4px;
+}
+
+.context-menu-color-section {
+  padding: 4px 8px 2px;
+}
+
+.context-menu-section-label {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin-bottom: 5px;
+  letter-spacing: 0.04em;
+}
+
+.context-menu-colors {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: transform 0.1s, border-color 0.1s;
+}
+.color-swatch:hover {
+  transform: scale(1.2);
+}
+.color-swatch.active {
+  border-color: var(--color-text);
+}
+/* 기본(회색) 스와치: 대각선으로 구분 */
+.color-swatch[title="기본"] {
+  background: linear-gradient(135deg, #ccc 50%, #888 50%) !important;
+}
+
+.context-menu-item:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.context-menu-item:disabled:hover {
+  background: none;
+}
+
 /* ── Editor Area ──────────────────────────────────────────── */
 .editor-area {
   flex: 1;

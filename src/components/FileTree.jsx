@@ -1,6 +1,29 @@
 import React, { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import { listFiles, openFolder, revealInExplorer, createFolder, writeFile, renameFile, isWeb } from '../api'
 
+const FOLDER_COLORS = [
+  { value: '', label: '기본' },
+  { value: '#e05252', label: '빨강' },
+  { value: '#e07b4c', label: '주황' },
+  { value: '#c9a227', label: '노랑' },
+  { value: '#4cae4c', label: '초록' },
+  { value: '#5b8dee', label: '파랑' },
+  { value: '#9b6dff', label: '보라' },
+  { value: '#e05ca1', label: '분홍' },
+]
+
+function sortFolderChildren(children, folderMeta) {
+  const dirs = children.filter(c => c.isDirectory)
+  const files = children.filter(c => !c.isDirectory)
+  const sortedDirs = [...dirs].sort((a, b) => {
+    const oa = folderMeta?.[a.path]?.order ?? Infinity
+    const ob = folderMeta?.[b.path]?.order ?? Infinity
+    if (oa !== ob) return oa - ob
+    return a.name.localeCompare(b.name)
+  })
+  return [...sortedDirs, ...files]
+}
+
 function FileIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -118,7 +141,8 @@ function RefreshIcon() {
 }
 
 function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, onContextMenu,
-  inlineInput, inlineValue, setInlineValue, inlineInputRef, onInlineKeyDown, onInlineBlur, parentRefresh, onFolderSelect }) {
+  inlineInput, inlineValue, setInlineValue, inlineInputRef, onInlineKeyDown, onInlineBlur,
+  parentRefresh, onFolderSelect, folderMeta, siblings }) {
   const [expanded, setExpanded] = useState(false)
   const [children, setChildren] = useState([])
   const [loading, setLoading] = useState(false)
@@ -150,7 +174,6 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
     }
   }, [item])
 
-  // Auto-expand subfolder when inline input targets it
   useEffect(() => {
     if (item.isDirectory && inlineInput &&
         (inlineInput.type === 'folder' || inlineInput.type === 'file') &&
@@ -159,12 +182,14 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
     }
   }, [item, inlineInput])
 
-  // 파일 노드는 부모의 refresh를, 폴더 노드는 자신의 refresh를 전달
   const handleContextMenuLocal = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
-    onContextMenu(e, item, item.isDirectory ? refreshChildren : parentRefresh)
-  }, [item, onContextMenu, refreshChildren, parentRefresh])
+    onContextMenu(e, item, item.isDirectory ? refreshChildren : parentRefresh, siblings)
+  }, [item, onContextMenu, refreshChildren, parentRefresh, siblings])
+
+  const folderColor = item.isDirectory ? (folderMeta?.[item.path]?.color || null) : null
+  const sortedChildren = sortFolderChildren(children, folderMeta)
 
   return (
     <div>
@@ -184,7 +209,7 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
             <polyline points="9 18 15 12 9 6"/>
           </svg>
         )}
-        <span className="tree-icon">
+        <span className="tree-icon" style={folderColor ? { color: folderColor } : {}}>
           {item.isDirectory ? <FolderIcon open={expanded} /> : <FileIcon />}
         </span>
         {isRenaming ? (
@@ -198,7 +223,7 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
             onClick={e => e.stopPropagation()}
           />
         ) : (
-          <span className="tree-name">{item.name}</span>
+          <span className="tree-name" style={folderColor ? { color: folderColor } : {}}>{item.name}</span>
         )}
         {!isRenaming && isActive && saveStatus === 'modified' && <span className="tree-dot" title="수정됨" />}
         {loading && <span className="tree-loading">…</span>}
@@ -209,13 +234,14 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
           {!loading && children.length === 0 && !inlineInput && (
             <div className="tree-empty" style={{ paddingLeft: indent + 22 }}>비어 있음</div>
           )}
-          {children.map(child => (
+          {sortedChildren.map(child => (
             <NotebookTreeNode key={child.path} item={child} depth={depth + 1}
               currentFile={currentFile} onFileSelect={onFileSelect} saveStatus={saveStatus}
               onContextMenu={onContextMenu}
               inlineInput={inlineInput} inlineValue={inlineValue} setInlineValue={setInlineValue}
               inlineInputRef={inlineInputRef} onInlineKeyDown={onInlineKeyDown} onInlineBlur={onInlineBlur}
-              parentRefresh={refreshChildren} />
+              parentRefresh={refreshChildren} onFolderSelect={onFolderSelect}
+              folderMeta={folderMeta} siblings={sortedChildren} />
           ))}
           {/* 인라인 새 폴더/파일 입력 (서브폴더) */}
           {inlineInput && (inlineInput.type === 'folder' || inlineInput.type === 'file') &&
@@ -246,7 +272,7 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
 
 const NotebookFolder = forwardRef(function NotebookFolder({ project, projectIndex, currentFile, onFileSelect, saveStatus,
   onContextMenu, onRootContextMenu, inlineInput, inlineValue, setInlineValue,
-  inlineInputRef, onInlineKeyDown, onInlineBlur, onFolderSelect }, ref) {
+  inlineInputRef, onInlineKeyDown, onInlineBlur, onFolderSelect, folderMeta }, ref) {
   const [expanded, setExpanded] = useState(true)
   const [children, setChildren] = useState([])
   const [loading, setLoading] = useState(false)
@@ -270,7 +296,6 @@ const NotebookFolder = forwardRef(function NotebookFolder({ project, projectInde
 
   useImperativeHandle(ref, () => ({ refresh: refreshChildren }), [refreshChildren])
 
-  // Auto-expand when inline input targets this folder
   useEffect(() => {
     if (inlineInput && (inlineInput.type === 'folder' || inlineInput.type === 'file') &&
         inlineInput.parentPath === project.path) {
@@ -284,6 +309,8 @@ const NotebookFolder = forwardRef(function NotebookFolder({ project, projectInde
   }, [onRootContextMenu, projectIndex])
 
   const isRenaming = inlineInput?.type === 'rename-notebook' && inlineInput?.projectIndex === projectIndex
+  const folderColor = folderMeta?.[project.path]?.color || null
+  const sortedChildren = sortFolderChildren(children, folderMeta)
 
   return (
     <div className="notebook-folder">
@@ -300,7 +327,9 @@ const NotebookFolder = forwardRef(function NotebookFolder({ project, projectInde
         >
           <polyline points="9 18 15 12 9 6"/>
         </svg>
-        <span className="tree-icon"><NotebookIcon /></span>
+        <span className="tree-icon" style={folderColor ? { color: folderColor } : {}}>
+          <NotebookIcon />
+        </span>
         {isRenaming ? (
           <input
             ref={inlineInputRef}
@@ -312,7 +341,9 @@ const NotebookFolder = forwardRef(function NotebookFolder({ project, projectInde
             onClick={e => e.stopPropagation()}
           />
         ) : (
-          <span className="notebook-folder-name">{project.name}</span>
+          <span className="notebook-folder-name" style={folderColor ? { color: folderColor } : {}}>
+            {project.name}
+          </span>
         )}
         <span className="notebook-folder-path">{project.path}</span>
         {loading && <span className="tree-loading">…</span>}
@@ -323,13 +354,14 @@ const NotebookFolder = forwardRef(function NotebookFolder({ project, projectInde
           {!loading && children.length === 0 && (
             <div className="tree-empty" style={{ paddingLeft: 30 }}>비어 있음</div>
           )}
-          {children.map(child => (
+          {sortedChildren.map(child => (
             <NotebookTreeNode key={child.path} item={child} depth={1}
               currentFile={currentFile} onFileSelect={onFileSelect} saveStatus={saveStatus}
               onContextMenu={onContextMenu}
               inlineInput={inlineInput} inlineValue={inlineValue} setInlineValue={setInlineValue}
               inlineInputRef={inlineInputRef} onInlineKeyDown={onInlineKeyDown} onInlineBlur={onInlineBlur}
-              parentRefresh={refreshChildren} onFolderSelect={onFolderSelect} />
+              parentRefresh={refreshChildren} onFolderSelect={onFolderSelect}
+              folderMeta={folderMeta} siblings={sortedChildren} />
           ))}
           {/* 인라인 새 폴더/파일 입력 */}
           {inlineInput && (inlineInput.type === 'folder' || inlineInput.type === 'file') &&
@@ -368,12 +400,71 @@ const FileTree = forwardRef(function FileTree(
   const [items, setItems] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [contextMenu, setContextMenu] = useState(null) // { x, y, file, refresh? }
+  const [contextMenu, setContextMenu] = useState(null)
   const contextMenuRef = useRef(null)
-  const [inlineInput, setInlineInput] = useState(null) // { type: 'folder'|'file'|'rename-notebook'|'rename-file', parentPath?, projectIndex?, refresh? }
+  const [inlineInput, setInlineInput] = useState(null)
   const [inlineValue, setInlineValue] = useState('')
   const inlineInputRef = useRef(null)
   const notebookRefs = useRef({})
+
+  const [folderMeta, setFolderMeta] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('md-viewer-folder-meta') || '{}') }
+    catch { return {} }
+  })
+
+  const saveFolderMeta = useCallback((newMeta) => {
+    setFolderMeta(newMeta)
+    localStorage.setItem('md-viewer-folder-meta', JSON.stringify(newMeta))
+  }, [])
+
+  const handleSetFolderColor = useCallback((path, color) => {
+    setFolderMeta(prev => {
+      const entry = { ...(prev[path] || {}) }
+      if (color) entry.color = color
+      else delete entry.color
+      const next = { ...prev }
+      if (Object.keys(entry).length > 0) next[path] = entry
+      else delete next[path]
+      localStorage.setItem('md-viewer-folder-meta', JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  const moveFolderOrder = useCallback((targetPath, siblings, direction) => {
+    setFolderMeta(prev => {
+      const dirs = (siblings || []).filter(s => s.isDirectory)
+      const sorted = [...dirs].sort((a, b) => {
+        const oa = prev[a.path]?.order ?? Infinity
+        const ob = prev[b.path]?.order ?? Infinity
+        if (oa !== ob) return oa - ob
+        return a.name.localeCompare(b.name)
+      })
+      const idx = sorted.findIndex(s => s.path === targetPath)
+      if (idx === -1) return prev
+      const newIdx = direction === 'up' ? idx - 1 : idx + 1
+      if (newIdx < 0 || newIdx >= sorted.length) return prev
+
+      const next = { ...prev }
+      // Normalize all dir indices first
+      sorted.forEach((s, i) => { next[s.path] = { ...(next[s.path] || {}), order: i } })
+      // Swap the two
+      const tmp = next[sorted[idx].path].order
+      next[sorted[idx].path] = { ...next[sorted[idx].path], order: next[sorted[newIdx].path].order }
+      next[sorted[newIdx].path] = { ...next[sorted[newIdx].path], order: tmp }
+
+      localStorage.setItem('md-viewer-folder-meta', JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  const moveNotebook = useCallback((index, direction) => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1
+    if (newIndex < 0 || newIndex >= projects.length) return
+    const updated = [...projects]
+    ;[updated[index], updated[newIndex]] = [updated[newIndex], updated[index]]
+    onProjectsChange(updated)
+    setContextMenu(null)
+  }, [projects, onProjectsChange])
 
   const loadDir = useCallback(async (dir) => {
     if (!dir) return
@@ -440,9 +531,9 @@ const FileTree = forwardRef(function FileTree(
     onProjectsChange(updated)
   }, [projects, onProjectsChange])
 
-  const handleNotebookContextMenu = useCallback((e, item, refreshFn) => {
+  const handleNotebookContextMenu = useCallback((e, item, refreshFn, siblings) => {
     e.preventDefault()
-    setContextMenu({ x: e.clientX, y: e.clientY, file: item, type: 'notebook-item', refresh: refreshFn })
+    setContextMenu({ x: e.clientX, y: e.clientY, file: item, type: 'notebook-item', refresh: refreshFn, siblings })
   }, [])
 
   const handleNotebookRootContextMenu = useCallback((e, projIndex) => {
@@ -451,7 +542,7 @@ const FileTree = forwardRef(function FileTree(
   }, [])
 
   const handleRefreshNotebooks = useCallback(() => {
-    Object.values(notebookRefs.current).forEach(ref => ref?.refresh())
+    Object.values(notebookRefs.current).forEach(r => r?.refresh())
   }, [])
 
   const handleRefreshExplorer = useCallback(() => {
@@ -506,6 +597,27 @@ const FileTree = forwardRef(function FileTree(
       setInlineValue('')
     }
   }, [handleInlineSubmit])
+
+  // ── Color palette UI helper ────────────────────────────────
+  function ColorPalette({ path }) {
+    const current = folderMeta[path]?.color || ''
+    return (
+      <div className="context-menu-color-section">
+        <span className="context-menu-section-label">색상</span>
+        <div className="context-menu-colors">
+          {FOLDER_COLORS.map(c => (
+            <button
+              key={c.value || 'default'}
+              className={`color-swatch${current === c.value ? ' active' : ''}`}
+              style={{ background: c.value || '#aaa' }}
+              title={c.label}
+              onClick={() => { handleSetFolderColor(path, c.value); setContextMenu(null) }}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="file-tree">
@@ -601,6 +713,7 @@ const FileTree = forwardRef(function FileTree(
               onInlineKeyDown={handleInlineKeyDown}
               onInlineBlur={handleInlineSubmit}
               onFolderSelect={onFolderSelect}
+              folderMeta={folderMeta}
             />
           ))}
         </div>
@@ -687,60 +800,93 @@ const FileTree = forwardRef(function FileTree(
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           {/* 노트북 루트 컨텍스트 메뉴 */}
-          {contextMenu.type === 'notebook-root' && (
-            <>
-              <button
-                className="context-menu-item"
-                onClick={() => {
-                  const pi = contextMenu.projectIndex
-                  startInlineInput('folder', projects[pi].path, () => notebookRefs.current[pi]?.refresh())
-                }}
-              >
-                새 폴더
-              </button>
-              <button
-                className="context-menu-item"
-                onClick={() => {
-                  const pi = contextMenu.projectIndex
-                  startInlineInput('file', projects[pi].path, () => notebookRefs.current[pi]?.refresh())
-                }}
-              >
-                새 파일 (.md)
-              </button>
-              {!isWeb && <button
-                className="context-menu-item"
-                onClick={() => { revealInExplorer(projects[contextMenu.projectIndex].path); setContextMenu(null) }}
-              >
-                탐색기에서 열기
-              </button>}
-              <button
-                className="context-menu-item"
-                onClick={() => {
-                  setInlineInput({ type: 'rename-notebook', projectIndex: contextMenu.projectIndex })
-                  setInlineValue(projects[contextMenu.projectIndex].name)
-                  setContextMenu(null)
-                  setTimeout(() => inlineInputRef.current?.focus(), 50)
-                }}
-              >
-                이름 변경
-              </button>
-              <button
-                className="context-menu-item context-menu-danger"
-                onClick={() => {
-                  if (window.confirm(`"${projects[contextMenu.projectIndex].name}" 노트북을 목록에서 제거하시겠습니까?\n(실제 폴더는 삭제되지 않습니다)`)) {
-                    handleRemoveNotebook(contextMenu.projectIndex)
-                  }
-                  setContextMenu(null)
-                }}
-              >
-                노트북 제거
-              </button>
-            </>
-          )}
+          {contextMenu.type === 'notebook-root' && (() => {
+            const pi = contextMenu.projectIndex
+            return (
+              <>
+                <ColorPalette path={projects[pi]?.path} />
+                <div className="context-menu-divider" />
+                <button
+                  className="context-menu-item"
+                  disabled={pi === 0}
+                  onClick={() => moveNotebook(pi, 'up')}
+                >
+                  ↑ 위로 이동
+                </button>
+                <button
+                  className="context-menu-item"
+                  disabled={pi === projects.length - 1}
+                  onClick={() => moveNotebook(pi, 'down')}
+                >
+                  ↓ 아래로 이동
+                </button>
+                <div className="context-menu-divider" />
+                <button
+                  className="context-menu-item"
+                  onClick={() => {
+                    startInlineInput('folder', projects[pi].path, () => notebookRefs.current[pi]?.refresh())
+                  }}
+                >
+                  새 폴더
+                </button>
+                <button
+                  className="context-menu-item"
+                  onClick={() => {
+                    startInlineInput('file', projects[pi].path, () => notebookRefs.current[pi]?.refresh())
+                  }}
+                >
+                  새 파일 (.md)
+                </button>
+                {!isWeb && <button
+                  className="context-menu-item"
+                  onClick={() => { revealInExplorer(projects[pi].path); setContextMenu(null) }}
+                >
+                  탐색기에서 열기
+                </button>}
+                <button
+                  className="context-menu-item"
+                  onClick={() => {
+                    setInlineInput({ type: 'rename-notebook', projectIndex: pi })
+                    setInlineValue(projects[pi].name)
+                    setContextMenu(null)
+                    setTimeout(() => inlineInputRef.current?.focus(), 50)
+                  }}
+                >
+                  이름 변경
+                </button>
+                <button
+                  className="context-menu-item context-menu-danger"
+                  onClick={() => {
+                    if (window.confirm(`"${projects[pi].name}" 노트북을 목록에서 제거하시겠습니까?\n(실제 폴더는 삭제되지 않습니다)`)) {
+                      handleRemoveNotebook(pi)
+                    }
+                    setContextMenu(null)
+                  }}
+                >
+                  노트북 제거
+                </button>
+              </>
+            )
+          })()}
 
           {/* 노트북 내 폴더 컨텍스트 메뉴 */}
           {contextMenu.type === 'notebook-item' && contextMenu.file?.isDirectory && (
             <>
+              <ColorPalette path={contextMenu.file.path} />
+              <div className="context-menu-divider" />
+              <button
+                className="context-menu-item"
+                onClick={() => { moveFolderOrder(contextMenu.file.path, contextMenu.siblings, 'up'); setContextMenu(null) }}
+              >
+                ↑ 위로 이동
+              </button>
+              <button
+                className="context-menu-item"
+                onClick={() => { moveFolderOrder(contextMenu.file.path, contextMenu.siblings, 'down'); setContextMenu(null) }}
+              >
+                ↓ 아래로 이동
+              </button>
+              <div className="context-menu-divider" />
               <button
                 className="context-menu-item"
                 onClick={() => { startInlineInput('folder', contextMenu.file.path, contextMenu.refresh); }}
