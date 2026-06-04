@@ -889,8 +889,8 @@ const Editor = forwardRef(function Editor(
           <div className="schedule-btn-group" ref={scheduleBtnGroupRef}>
             <button
               className="schedule-btn-main"
-              onClick={handleOpenSchedule}
-              title="새 창으로 열기"
+              onClick={handleOpenScheduleSplitAction}
+              title="스플릿 뷰로 열기"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="4" width="18" height="16" rx="2"/>
