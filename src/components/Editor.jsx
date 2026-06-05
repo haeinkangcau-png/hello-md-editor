@@ -468,6 +468,7 @@ const Editor = forwardRef(function Editor(
       editor.commands.setContent(content)
       setTimeout(() => {
         if (cancelled) return
+        editor.commands.clearHistory()
         isSettingContent.current = false
         onHeadingsChange?.(extractHeadings(editor))
       }, 60)
@@ -557,6 +558,7 @@ const Editor = forwardRef(function Editor(
     isSettingContent.current = true
     editor.commands.setContent(rawContent)
     setTimeout(() => {
+      editor.commands.clearHistory()
       isSettingContent.current = false
       onHeadingsChange?.(extractHeadings(editor))
       onContentChange(rawContent, countWords(rawContent))
