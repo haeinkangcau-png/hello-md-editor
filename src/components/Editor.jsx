@@ -115,8 +115,7 @@ function DatePickerPopup({ x, y, dateStr, onSelect, onClose }) {
 
 function todayStr() {
   const d = new Date()
-  const days = ['일','월','화','수','목','금','토']
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}(${days[d.getDay()]})`
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 
 function nowStr() {
@@ -669,6 +668,51 @@ const Editor = forwardRef(function Editor(
           const fp2 = currentFilePathRef.current || ''
           const fn = fp2 ? fp2.replace(/\\/g, '/').split('/').pop().replace(/\.md$/i, '') : ''
           ch.postMessage({ type: 'md-update', content: raw, fileName: fn })
+        }
+        if (e.data?.type === 'schedule-md-update') {
+          const newContent = e.data.content
+          if (newContent == null) return
+          if (editModeRef.current === 'raw') {
+            setRawContent(newContent)
+          } else if (editorRef2.current) {
+            isSettingContent.current = true
+            editorRef2.current.commands.setContent(newContent)
+            setTimeout(() => { isSettingContent.current = false }, 60)
+          }
+        }
+        if (e.data?.type === 'schedule-focus-item') {
+          const itemName = e.data.itemName
+          if (!itemName) return
+          if (editModeRef.current === 'raw') {
+            const ta = textareaRef.current
+            if (!ta) return
+            const idx = ta.value.indexOf(itemName)
+            if (idx === -1) return
+            ta.focus()
+            ta.setSelectionRange(idx, idx + itemName.length)
+            const lineNum = ta.value.substring(0, idx).split('\n').length - 1
+            const lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 24
+            ta.scrollTop = Math.max(0, lineNum * lineHeight - ta.clientHeight / 2)
+          } else if (editorRef2.current) {
+            const doc = editorRef2.current.state.doc
+            let foundPos = null
+            doc.descendants((node, pos) => {
+              if (foundPos != null) return false
+              if (node.isText && node.text.includes(itemName)) {
+                foundPos = pos + node.text.indexOf(itemName)
+              }
+            })
+            if (foundPos != null) {
+              editorRef2.current.commands.setTextSelection(foundPos)
+              editorRef2.current.view.focus()
+              requestAnimationFrame(() => {
+                const domNode = editorRef2.current?.view.nodeDOM(foundPos)
+                if (!domNode) return
+                const el = domNode instanceof Element ? domNode : domNode.parentElement
+                el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+              })
+            }
+          }
         }
       }
       scheduleChannelRef.current = ch

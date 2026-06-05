@@ -1667,6 +1667,7 @@ calGrid.addEventListener('click', (e) => {
   closeCal();
   clearTimeout(debounceTimer);
   render(currentMode);
+  if (_schedCh) _schedCh.postMessage({ type: 'schedule-md-update', content: document.getElementById('mdInput').value });
 });
 
 document.getElementById('calPrev').addEventListener('click', () => {
@@ -1743,7 +1744,10 @@ document.getElementById('calDurApply').addEventListener('click', () => {
   calEndValue.textContent = calCtx.endDate;
   closeCal();
   clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => render(currentMode), 150);
+  debounceTimer = setTimeout(() => {
+    render(currentMode);
+    if (_schedCh) _schedCh.postMessage({ type: 'schedule-md-update', content: document.getElementById('mdInput').value });
+  }, 150);
 });
 
 // ── 에디터: 커서 위치 날짜 감지 ──
@@ -1861,8 +1865,20 @@ document.getElementById('chartInner').addEventListener('click', (e) => {
 
   calCtx = { source: 'chart', startDate, endDate, itemName };
 
+  if (_schedCh && itemName) _schedCh.postMessage({ type: 'schedule-focus-item', itemName });
+
   const dateStr = calDateMode === 'start' ? startDate : endDate;
   openCal(e.clientX, e.clientY + 12, dateStr, true);
+});
+
+// ── 라벨 클릭 → 에디터 포커스 ──
+document.getElementById('chartInner').addEventListener('click', (e) => {
+  const labelCell = e.target.closest('.label-cell');
+  if (!labelCell || e.target.closest('.chart-bar')) return;
+  const nameEl = labelCell.querySelector('.label-main') || labelCell.querySelector('.product-title') || labelCell.querySelector('.section-title');
+  if (!nameEl) return;
+  const itemName = nameEl.textContent.replace(/[▼▶]/g, '').trim();
+  if (itemName && _schedCh) _schedCh.postMessage({ type: 'schedule-focus-item', itemName });
 });
 
 // ── 밖 클릭 시 닫기 ──
