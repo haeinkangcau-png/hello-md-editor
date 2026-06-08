@@ -1175,6 +1175,75 @@ kbd {
 }
 .schedule-dropdown button:hover { background: var(--color-border-light); }
 
+/* ── Settings (gear) menu ─────────────────────────────────── */
+.settings-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.settings-btn:hover { background: var(--color-border-light); color: var(--color-text); }
+.settings-dropdown.up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+.settings-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  min-width: 170px;
+  z-index: 200;
+  overflow: hidden;
+  padding: 5px 0;
+}
+.settings-dropdown-title {
+  padding: 5px 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--color-text-muted);
+}
+.settings-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background .1s;
+}
+.settings-item:hover { background: var(--color-border-light); }
+.settings-item input { cursor: pointer; margin: 0; }
+
+/* Gear inside the status bar (bottom-right): subtle, borderless, opens upward */
+.status-bar .settings-menu { display: inline-flex; align-items: center; margin-left: 2px; }
+.status-bar .settings-btn {
+  padding: 1px 3px;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+}
+.status-bar .settings-btn:hover { background: none; color: var(--color-text); }
+.status-bar .settings-btn svg { width: 13px; height: 13px; }
+
 /* ── 스케줄 스플릿 패널 ──────────────────────────────────────── */
 .schedule-split-divider {
   width: 4px;

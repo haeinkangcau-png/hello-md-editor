@@ -121,6 +121,7 @@ function makeElectronAPI() {
     copyAssets:       (src, dest)  => wrap(api.copyAssets(src, dest)),
     readImageBase64:  (path)       => wrap(api.readImageBase64(path)),
     openScheduleWindow: (content, fileName) => api.openScheduleWindow(content, fileName),
+    openSpecWindow: (content, fileName) => api.openSpecWindow(content, fileName),
   }
 }
 
@@ -269,6 +270,16 @@ function makeWebAPI() {
       }
       return Promise.resolve();
     },
+    openSpecWindow: () => {
+      // Content is delivered over the 'md-spec-sync' BroadcastChannel: the viewer
+      // requests it on load (and on reload), and App.jsx responds. This keeps the
+      // content alive across browser refreshes without re-injection.
+      const base = import.meta.env.BASE_URL || '/';
+      const url = base + 'specviewer.html?embed=1';
+      const w = window.open(url, 'md-specviewer', 'width=1400,height=900');
+      if (w) w.focus();
+      return Promise.resolve();
+    },
   }
 }
 
@@ -289,6 +300,7 @@ export const cleanupImages    = impl.cleanupImages
 export const copyAssets          = impl.copyAssets
 export const readImageBase64     = impl.readImageBase64
 export const openScheduleWindow  = (content, fileName) => impl.openScheduleWindow(content, fileName)
+export const openSpecWindow      = (content, fileName) => impl.openSpecWindow(content, fileName)
 
 // Web only: register a file handle after user picks a file
 export function registerFileHandle(path, handle) { regFile(path, handle) }

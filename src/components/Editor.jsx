@@ -5,6 +5,7 @@ import React, {
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Extension } from '@tiptap/core'
+import { EditorState } from '@tiptap/pm/state'
 import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 import Table from '@tiptap/extension-table'
@@ -132,6 +133,22 @@ const SNIPPETS = [
   { trigger: '/회의', replace: () => meetingTemplate() },
 ]
 
+// TipTap 2.x has NO clearHistory command (only undo/redo) — calling it is a silent
+// no-op. To actually reset undo/redo, recreate the EditorState with the same doc and
+// plugins. This makes the freshly-loaded content the undo baseline so repeated Ctrl+Z
+// can never revert past it to an empty document.
+function clearEditorHistory(editor) {
+  if (!editor || editor.isDestroyed) return
+  try {
+    const { state, view } = editor
+    view.updateState(EditorState.create({
+      doc: state.doc,
+      plugins: state.plugins,
+      selection: state.selection,
+    }))
+  } catch { /* ignore */ }
+}
+
 function countWords(text) {
   return text.trim() ? text.trim().split(/\s+/).length : 0
 }
@@ -147,17 +164,21 @@ function extractHeadings(editor) {
 }
 
 const Editor = forwardRef(function Editor(
-  { initialContent, onContentChange, onHeadingsChange, onSave, currentFilePath, onOpenScheduleSplit },
+  { initialContent, onContentChange, onHeadingsChange, onSave, currentFilePath, onOpenScheduleSplit, onOpenSpecWindow, onLoadTemplate, toolbarPrefs = { showSchedule: true, showSpecViewer: true, showTemplate: false } },
   ref
 ) {
   const isSettingContent = useRef(false)
   const headingDebounceRef = useRef(null)
-  const snippetGuardRef = useRef(false)
+  // Suppress snippet re-detection for a short window after firing one.
+  // Timestamp-based so it auto-expires and can never get stuck (Mac IME event-order safe).
+  const snippetGuardUntil = useRef(0)
   const [editMode, setEditMode] = useState('wysiwyg') // 'wysiwyg' | 'raw'
   const [rawContent, setRawContent] = useState('')
   const [copied, setCopied] = useState(false)
   const [scheduleDropdownOpen, setScheduleDropdownOpen] = useState(false)
   const scheduleBtnGroupRef = useRef(null)
+  const [templateDropdownOpen, setTemplateDropdownOpen] = useState(false)
+  const templateBtnGroupRef = useRef(null)
   const scheduleChannelRef = useRef(null)
   const rawContentRef = useRef('')
   const [calState, setCalState] = useState(null) // { x, y, dateStr, onApply }
@@ -354,10 +375,10 @@ const Editor = forwardRef(function Editor(
     },
     onUpdate: ({ editor }) => {
       if (isSettingContent.current) return
-      if (snippetGuardRef.current) { snippetGuardRef.current = false; return }
 
       // ── Snippet detection (non-IME input only) ──
-      if (!editor.view.composing) {
+      // Skip detection (not propagation) while inside the post-fire suppression window.
+      if (performance.now() >= snippetGuardUntil.current && !editor.view.composing) {
         const { $from } = editor.state.selection
         if ($from.parentOffset > 0) {
           const textBefore = $from.parent.textBetween(
@@ -367,7 +388,7 @@ const Editor = forwardRef(function Editor(
             const hasSpace = textBefore.endsWith(s.trigger + ' ')
             if (textBefore.endsWith(s.trigger) || hasSpace) {
               const matchLen = s.trigger.length + (hasSpace ? 1 : 0)
-              snippetGuardRef.current = true
+              snippetGuardUntil.current = performance.now() + 250
               const from = $from.pos - matchLen
               const to = $from.pos
               const text = s.replace()
@@ -402,7 +423,7 @@ const Editor = forwardRef(function Editor(
     const dom = editor.view.dom
     const onCompositionEnd = () => {
       queueMicrotask(() => {
-        if (snippetGuardRef.current) return
+        if (performance.now() < snippetGuardUntil.current) return
         const { $from } = editor.state.selection
         if ($from.parentOffset <= 0) return
         const textBefore = $from.parent.textBetween(
@@ -412,7 +433,7 @@ const Editor = forwardRef(function Editor(
           const hasSpace = textBefore.endsWith(s.trigger + ' ')
           if (textBefore.endsWith(s.trigger) || hasSpace) {
             const matchLen = s.trigger.length + (hasSpace ? 1 : 0)
-            snippetGuardRef.current = true
+            snippetGuardUntil.current = performance.now() + 250
             const from = $from.pos - matchLen
             const to = $from.pos
             editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, s.replace()).run()
@@ -449,8 +470,8 @@ const Editor = forwardRef(function Editor(
       if (editModeRef.current === 'wysiwyg' && editor) {
         isSettingContent.current = true
         editor.commands.setContent(content)
+        isSettingContent.current = false   // reset synchronously — never let it stick true
         setTimeout(() => {
-          isSettingContent.current = false
           onHeadingsChange?.(extractHeadings(editor))
         }, 60)
       } else if (editModeRef.current === 'raw') {
@@ -470,10 +491,20 @@ const Editor = forwardRef(function Editor(
         : toAbsImagePaths(initialContent || '')
       if (cancelled) return
       editor.commands.setContent(content)
+      // setContent fires onUpdate synchronously (ignored via the flag); reset the flag
+      // immediately so user edits propagate. Never rely on the timeout for this — if the
+      // timeout is skipped (cancel/throw) the flag would stick true and block all edits.
+      isSettingContent.current = false
+      // Clear undo history synchronously so the loaded content is the undo baseline
+      // (repeated Ctrl+Z must not revert past it to an empty doc). Don't depend on the
+      // timeout — if it's skipped, undo would wipe the document.
+      clearEditorHistory(editor)
+      // Doc is updated synchronously — extract headings right away so the TOC populates.
+      onHeadingsChange?.(extractHeadings(editor))
       setTimeout(() => {
-        if (cancelled) return
-        editor.commands.clearHistory()
-        isSettingContent.current = false
+        if (cancelled || editor.isDestroyed) return
+        clearEditorHistory(editor)   // backup re-assert
+        // Re-extract as a backup in case async markdown image resolution shifted the doc.
         onHeadingsChange?.(extractHeadings(editor))
       }, 150)
     }
@@ -561,9 +592,10 @@ const Editor = forwardRef(function Editor(
     if (!editor) return
     isSettingContent.current = true
     editor.commands.setContent(rawContent)
+    isSettingContent.current = false   // reset synchronously — never let it stick true
+    clearEditorHistory(editor)     // sync — loaded content is the undo baseline
     setTimeout(() => {
-      editor.commands.clearHistory()
-      isSettingContent.current = false
+      clearEditorHistory(editor)   // backup re-assert
       onHeadingsChange?.(extractHeadings(editor))
       onContentChange(rawContent, countWords(rawContent))
     }, 60)
@@ -586,8 +618,8 @@ const Editor = forwardRef(function Editor(
     if (editMode === 'wysiwyg') {
       isSettingContent.current = true
       editor.commands.setContent(normalized)
+      isSettingContent.current = false   // reset synchronously — never let it stick true
       setTimeout(() => {
-        isSettingContent.current = false
         onContentChange(normalized, countWords(normalized))
         onHeadingsChange?.(extractHeadings(editor))
       }, 60)
@@ -683,7 +715,7 @@ const Editor = forwardRef(function Editor(
           } else if (editorRef2.current) {
             isSettingContent.current = true
             editorRef2.current.commands.setContent(newContent)
-            setTimeout(() => { isSettingContent.current = false }, 60)
+            isSettingContent.current = false   // reset synchronously — never let it stick true
           }
         }
         if (e.data?.type === 'schedule-focus-item') {
@@ -742,6 +774,10 @@ const Editor = forwardRef(function Editor(
     onOpenScheduleSplit?.()
   }, [ensureScheduleChannel, onOpenScheduleSplit])
 
+  const handleOpenSpecWindowAction = useCallback(() => {
+    onOpenSpecWindow?.()
+  }, [onOpenSpecWindow])
+
   // close schedule dropdown on outside click
   useEffect(() => {
     if (!scheduleDropdownOpen) return
@@ -753,6 +789,18 @@ const Editor = forwardRef(function Editor(
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [scheduleDropdownOpen])
+
+  // close template dropdown on outside click
+  useEffect(() => {
+    if (!templateDropdownOpen) return
+    const handler = (e) => {
+      if (templateBtnGroupRef.current && !templateBtnGroupRef.current.contains(e.target)) {
+        setTemplateDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [templateDropdownOpen])
 
   const handleCopyAll = useCallback(async () => {
     const md = editMode === 'wysiwyg'
@@ -858,16 +906,11 @@ const Editor = forwardRef(function Editor(
     }
   }, [editMode, editor, replaceText, query, rawContent, onContentChange, syncWysiwygSearchState])
 
-  const handleKeyDown = useCallback((e) => {
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 's') {
-      e.preventDefault()
-      onSave(undefined, { isManual: true })
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-      e.preventDefault()
-      setSearchOpen(true)
-    }
-  }, [onSave])
+  // Cmd/Ctrl+S (save) and Cmd/Ctrl+F (search) are handled by the single
+  // window-level listener in App.jsx. Handling them here too caused two
+  // concurrent saves to collide on the File System Access writable stream
+  // (manifested as save failures, notably on macOS), so this is intentionally empty.
+  const handleKeyDown = useCallback(() => {}, [])
 
   // ── Raw textarea image paste ─────────────────────────────
   const handleRawPaste = useCallback((e) => {
@@ -938,6 +981,36 @@ const Editor = forwardRef(function Editor(
         </div>
 
         <div className="mode-bar-right">
+          {toolbarPrefs.showTemplate && (
+          <div className="schedule-btn-group" ref={templateBtnGroupRef}>
+            <button
+              className="schedule-btn-main"
+              onClick={() => setTemplateDropdownOpen(v => !v)}
+              title="템플릿을 현재 문서 상단에 삽입"
+              style={{ borderRadius: 'var(--radius-sm)' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/>
+                <line x1="9" y1="15" x2="15" y2="15"/>
+              </svg>
+              Template ▾
+            </button>
+            {templateDropdownOpen && (
+              <div className="schedule-dropdown">
+                <button onClick={() => { onLoadTemplate?.('spec'); setTemplateDropdownOpen(false) }}>
+                  기능정의서
+                </button>
+                <button onClick={() => { onLoadTemplate?.('changelog'); setTemplateDropdownOpen(false) }}>
+                  기능정의서 변경이력
+                </button>
+              </div>
+            )}
+          </div>
+          )}
+
+          {toolbarPrefs.showSchedule && (
           <div className="schedule-btn-group" ref={scheduleBtnGroupRef}>
             <button
               className="schedule-btn-main"
@@ -979,6 +1052,27 @@ const Editor = forwardRef(function Editor(
               </div>
             )}
           </div>
+          )}
+
+          {toolbarPrefs.showSpecViewer && (
+          <div className="schedule-btn-group">
+            <button
+              className="schedule-btn-main"
+              onClick={handleOpenSpecWindowAction}
+              title="Spec Viewer 새 창으로 열기"
+              style={{ borderRadius: 'var(--radius-sm)', borderRight: 'none' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="8" y1="13" x2="16" y2="13"/>
+                <line x1="8" y1="17" x2="13" y2="17"/>
+              </svg>
+              Spec viewer
+            </button>
+          </div>
+          )}
+
           <button
             className="copy-md-btn"
             onClick={handleCopyAll}

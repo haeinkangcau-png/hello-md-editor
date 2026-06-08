@@ -1,5 +1,6 @@
 import React from 'react'
 import { version } from '../../package.json'
+import SettingsMenu from './SettingsMenu'
 
 const STATUS_MAP = {
   saved: { label: '저장됨', cls: 'saved' },
@@ -8,7 +9,7 @@ const STATUS_MAP = {
   error: { label: '저장 실패', cls: 'error' },
 }
 
-export default function StatusBar({ file, saveStatus, autoSave, wordCount }) {
+export default function StatusBar({ file, saveStatus, autoSave, wordCount, settings, onToggleSetting }) {
   const status = STATUS_MAP[saveStatus] || STATUS_MAP.saved
   const fileName = file?.path?.replace(/\\/g, '/').split('/').pop() || ''
 
@@ -39,6 +40,9 @@ export default function StatusBar({ file, saveStatus, autoSave, wordCount }) {
         </span>
         <span className="status-sep">·</span>
         <span className="status-version">v{version}</span>
+        {settings && onToggleSetting && (
+          <SettingsMenu settings={settings} onToggle={onToggleSetting} openUp />
+        )}
       </div>
     </div>
   )

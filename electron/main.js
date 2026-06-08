@@ -353,3 +353,56 @@ ipcMain.handle('open-schedule-window', async (event, content, fileName) => {
     `)
   }
 })
+
+// ── Spec Viewer window ─────────────────────────────────────
+const injectSpec = (content, fileName) => `
+  (function() {
+    function go() {
+      try {
+        if (typeof loadSpecFromText !== 'function') return;
+        loadSpecFromText(${JSON.stringify(content || '')}, ${JSON.stringify(fileName || 'spec')});
+        if (typeof hideStartup === 'function') hideStartup();
+        if (typeof render === 'function') render();
+        // Replicate the viewer's load() success path so the detail (3rd) panel shows.
+        var ca = document.getElementById('ca');
+        if (ca) ca.classList.add('panel-open');
+        if (typeof initListWidth === 'function') initListWidth();
+        if (typeof setPanelWidth === 'function') setPanelWidth(780);
+      } catch (e) {}
+    }
+    // Re-assert a few times — the viewer's own async load() may re-show the
+    // startup screen after our first inject.
+    go(); setTimeout(go, 250); setTimeout(go, 600);
+  })();
+`;
+
+let specWindow = null;
+let specLast = { content: '', fileName: 'spec' };
+ipcMain.handle('open-spec-window', async (event, content, fileName) => {
+  specLast = { content: content || '', fileName: fileName || 'spec' };
+  // 기존 스펙 뷰어 창이 열려있으면 재사용
+  if (specWindow && !specWindow.isDestroyed()) {
+    specWindow.focus();
+    await specWindow.webContents.executeJavaScript(injectSpec(specLast.content, specLast.fileName));
+    return;
+  }
+  specWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    title: 'Spec Viewer',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+  specWindow.on('closed', () => { specWindow = null; });
+  // Re-inject on every load (initial + reload/Cmd+R) so content survives refresh.
+  specWindow.webContents.on('did-finish-load', () => {
+    specWindow?.webContents.executeJavaScript(injectSpec(specLast.content, specLast.fileName)).catch(() => {});
+  });
+  if (isDev) {
+    await specWindow.loadURL('http://localhost:5174/specviewer.html?embed=1')
+  } else {
+    await specWindow.loadFile(path.join(__dirname, '../dist/specviewer.html'), { search: 'embed=1' })
+  }
+})

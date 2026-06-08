@@ -1,17 +1,18 @@
 {
   "name": "md-viewer",
-  "version": "1.4.7",
+  "version": "1.5.0",
   "description": "Markdown viewer and editor",
   "author": "neurophet",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
-    "dev": "concurrently -k -n \"UI,App\" -c \"green,cyan\" \"vite\" \"wait-on http://localhost:5174 && node scripts/start-electron.js\"",
-    "build": "vite build && electron-builder",
-    "build:win": "vite build && electron-builder --win",
-    "build:mac": "vite build && electron-builder --mac",
+    "copy:specviewer": "node scripts/copy-specviewer.js",
+    "dev": "node scripts/copy-specviewer.js && concurrently -k -n \"UI,App\" -c \"green,cyan\" \"vite\" \"wait-on http://localhost:5174 && node scripts/start-electron.js\"",
+    "build": "node scripts/copy-specviewer.js && vite build && electron-builder",
+    "build:win": "node scripts/copy-specviewer.js && vite build && electron-builder --win",
+    "build:mac": "node scripts/copy-specviewer.js && vite build && electron-builder --mac",
     "pack": "electron-builder --dir",
-    "dist": "vite build && electron-builder --win portable"
+    "dist": "node scripts/copy-specviewer.js && vite build && electron-builder --win portable"
   },
   "build": {
     "appId": "com.neurophet.mdviewer",

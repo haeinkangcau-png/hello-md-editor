@@ -6,9 +6,12 @@ import HtmlEditor from './components/HtmlEditor'
 import MarkdownPreview from './components/MarkdownPreview'
 import SaveAsModal from './components/SaveAsModal'
 import StatusBar from './components/StatusBar'
-import { readFile, writeFile, saveDialog, pickAndReadFile, isWeb, cleanupImages, checkExists, copyAssets } from './api'
+import SettingsMenu from './components/SettingsMenu'
+import { readFile, writeFile, saveDialog, pickAndReadFile, isWeb, cleanupImages, checkExists, copyAssets, openSpecWindow } from './api'
 import { exportHtml } from './utils/htmlExport'
 import { normalizeHtmlTables, makeHeadingId } from './utils/mdRenderer'
+import specTemplate from './templates/spec-template.md?raw'
+import changelogTemplate from './templates/changelog-template.md?raw'
 
 export default function App() {
   const [rootDir, setRootDir] = useState('')
@@ -20,6 +23,27 @@ export default function App() {
   const [wordCount, setWordCount] = useState(0)
   const [headings, setHeadings] = useState([])
   const [showSaveAs, setShowSaveAs] = useState(false)
+  // Bumped whenever a new/template doc is loaded so the (path-less) editor remounts
+  // and picks up the new initialContent even when staying on an untitled doc.
+  const [newDocNonce, setNewDocNonce] = useState(0)
+
+  // Toolbar feature toggles (gear menu in the status bar). Defaults: Spec Viewer on,
+  // Template off, Schedule on. User changes are persisted and override the defaults.
+  const [toolbarPrefs, setToolbarPrefs] = useState(() => {
+    const defaults = { showSchedule: true, showSpecViewer: true, showTemplate: false }
+    try {
+      return { ...defaults, ...JSON.parse(localStorage.getItem('mdeditor-toolbar-prefs') || '{}') }
+    } catch {
+      return defaults
+    }
+  })
+  const toggleToolbarPref = useCallback((key) => {
+    setToolbarPrefs(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      localStorage.setItem('mdeditor-toolbar-prefs', JSON.stringify(next))
+      return next
+    })
+  }, [])
   const [isDragOver, setIsDragOver] = useState(false)
 
   const [sidebarSplit, setSidebarSplit] = useState(60) // file-tree height %
@@ -65,6 +89,7 @@ export default function App() {
   const isDraggingDivider = useRef(false)
   const isDraggingPreview = useRef(false)
   const isDraggingSchedule = useRef(false)
+  const specChannelRef = useRef(null)
   contentRef.current = fileContent
   currentFileRef.current = currentFile
 
@@ -95,6 +120,7 @@ export default function App() {
     window.addEventListener('mouseup', onMouseUp)
   }, [])
 
+  // ── Spec split drag ───────────────────────────────────────
   const handleOpenScheduleSplit = useCallback(() => {
     setScheduleSplit(true)
   }, [])
@@ -102,6 +128,31 @@ export default function App() {
   const handleCloseScheduleSplit = useCallback(() => {
     setScheduleSplit(false)
   }, [])
+
+  // ── Spec Viewer (new window only) ──────────────────────────
+  const unescapeMd = (s) => (s || '').replace(/\\([\[\]~*_`|\\<>])/g, '$1')
+
+  // The spec window pulls content over this channel — so it survives a browser
+  // reload (the window re-requests on load) and the 새로고침 button is just reload().
+  const ensureSpecChannel = useCallback(() => {
+    if (specChannelRef.current) return
+    const ch = new BroadcastChannel('md-spec-sync')
+    ch.onmessage = (e) => {
+      if (e.data?.type === 'spec-md-request') {
+        const md = unescapeMd(contentRef.current)
+        const fn = currentFileRef.current?.name?.replace(/\.[^.]+$/, '') || 'spec'
+        ch.postMessage({ type: 'spec-md-update', md, filename: fn })
+      }
+    }
+    specChannelRef.current = ch
+  }, [])
+
+  const handleOpenSpecWindow = useCallback(() => {
+    ensureSpecChannel()
+    const md = unescapeMd(contentRef.current)
+    const fn = currentFileRef.current?.name?.replace(/\.[^.]+$/, '') || 'spec'
+    openSpecWindow(md, fn)
+  }, [ensureSpecChannel])
 
   // 파일 전환 시 스케줄 스플릿 자동 닫기
   useEffect(() => {
@@ -217,6 +268,9 @@ export default function App() {
   // ── Save ───────────────────────────────────────────────────
   const handleSave = useCallback(async (overridePath, { isManual = false } = {}) => {
     const file = currentFileRef.current
+    // Safety net: autosave must NEVER silently blank out an existing file (guards
+    // against undo glitches / data loss). Clearing a file requires an explicit save.
+    if (!isManual && file?.path && !contentRef.current.trim()) return
     let savePath = overridePath || file?.path
     if (!savePath) {
       // 노트북 탭에서 폴더를 선택한 상태면 그 폴더를 기본 경로로 사용
@@ -370,6 +424,7 @@ export default function App() {
         if (hasSavedPath) await handleSave()
       }
     }
+    setNewDocNonce(n => n + 1)
     setCurrentFile({ path: null, name: 'Untitled.md' })
     setFileContent('')
     setSaveStatus('saved')
@@ -377,11 +432,34 @@ export default function App() {
     document.title = 'Untitled.md — Hi MD Editor'
   }, [saveStatus, autoSave, handleSave])
 
+  // ── Insert a template at the TOP of the current document ───
+  // The existing content is kept below, separated by a horizontal rule.
+  const handleLoadTemplate = useCallback((kind) => {
+    const tpl = kind === 'changelog' ? changelogTemplate : specTemplate
+    const current = (contentRef.current || '').trim()
+    const merged = current ? `${tpl.trim()}\n\n---\n\n${current}\n` : `${tpl.trim()}\n`
+    // Keep the current file (path/name) — just prepend. Bump the nonce so the editor
+    // remounts and picks up the merged content even when the path is unchanged.
+    setNewDocNonce(n => n + 1)
+    setFileContent(merged)
+    setSaveStatus('modified')
+  }, [])
+
   // ── Content change from editor ─────────────────────────────
+  const specPushTimerRef = useRef(null)
   const handleContentChange = useCallback((markdown, words) => {
     setFileContent(markdown)
     setWordCount(words)
     setSaveStatus('modified')
+    // Live-push edits to an open Spec window (debounced) so it reflects changes
+    // without needing a manual refresh.
+    if (specChannelRef.current) {
+      clearTimeout(specPushTimerRef.current)
+      specPushTimerRef.current = setTimeout(() => {
+        const fn = currentFileRef.current?.name?.replace(/\.[^.]+$/, '') || 'spec'
+        specChannelRef.current?.postMessage({ type: 'spec-md-update', md: unescapeMd(markdown), filename: fn })
+      }, 500)
+    }
   }, [])
 
   // ── Heading navigation ─────────────────────────────────────
@@ -625,13 +703,16 @@ export default function App() {
               ) : (
                 <Editor
                   ref={editorRef}
-                  key={currentFile.path || '__new__'}
+                  key={`${currentFile.path || '__new__'}#${newDocNonce}`}
                   initialContent={fileContent}
                   onContentChange={handleContentChange}
                   onHeadingsChange={setHeadings}
                   onSave={handleSave}
                   currentFilePath={currentFile.path}
                   onOpenScheduleSplit={handleOpenScheduleSplit}
+                  onOpenSpecWindow={handleOpenSpecWindow}
+                  onLoadTemplate={handleLoadTemplate}
+                  toolbarPrefs={toolbarPrefs}
                 />
               )
             ) : (
@@ -718,6 +799,8 @@ export default function App() {
         saveStatus={saveStatus}
         autoSave={autoSave}
         wordCount={wordCount}
+        settings={toolbarPrefs}
+        onToggleSetting={toggleToolbarPref}
       />
     </div>
   )
