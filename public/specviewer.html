@@ -961,7 +961,9 @@ function parseMD(md){
   const parentIntros={};
   let pSec=null,pIntroLines=[];
   for(const line of mdLines){
-    const sm=line.match(/^#{1,2}\s+(\d+)\./);
+    // 섹션 헤더만 매칭: `숫자.` 뒤에 공백이 와야 함. `## 1.4`(점 뒤 숫자)는 항목이므로 제외
+    // (그렇지 않으면 마지막 항목 본문이 섹션 개요로 오인되어 전 항목에 붙는 버그 발생)
+    const sm=line.match(/^#{1,2}\s+(\d+)\.\s/);
     if(sm){
       if(pSec&&pIntroLines.some(l=>l.trim())) parentIntros[pSec]=pIntroLines.join('\n').trim();
       pSec=sm[1];pIntroLines=[];continue;
