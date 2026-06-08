@@ -36,9 +36,7 @@ export default function TocPanel({ headings, onHeadingClick, markdown }) {
   const [copied, setCopied] = useState(false)
   const menuRef = useRef(null)
 
-  if (!headings || headings.length === 0) return null
-
-  const visible = headings.filter(h => h.level <= maxDepth)
+  const visible = (headings || []).filter(h => h.level <= maxDepth)
 
   const handleContextMenu = useCallback((e, heading) => {
     e.preventDefault()
@@ -104,7 +102,9 @@ export default function TocPanel({ headings, onHeadingClick, markdown }) {
       {!collapsed && (
         <div className="toc-body">
           {visible.length === 0 ? (
-            <div className="toc-empty">H{maxDepth} 이하 항목 없음</div>
+            <div className="toc-empty">
+              {(!headings || headings.length === 0) ? '제목이 없습니다' : `H${maxDepth} 이하 항목 없음`}
+            </div>
           ) : visible.map((h, i) => (
             <button
               key={i}

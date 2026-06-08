@@ -143,8 +143,17 @@ function makeWebAPI() {
     },
 
     writeFile: async (path, content) => {
-      const handle = await resolveHandle(path, 'readwrite')
-      if (!handle) throw new Error('파일 핸들을 찾을 수 없습니다')
+      let handle = await resolveHandle(path, 'readwrite')
+      if (!handle) {
+        const normalPath = path.replace(/\\/g, '/')
+        const parts = normalPath.split('/')
+        const fileName = parts.pop()
+        const parentPath = parts.join('/')
+        const parentHandle = await resolveHandle(parentPath, 'readwrite')
+        if (!parentHandle) throw new Error('파일 핸들을 찾을 수 없습니다')
+        handle = await parentHandle.getFileHandle(fileName, { create: true })
+        regFile(normalPath, handle)
+      }
       const writable = await handle.createWritable()
       await writable.write(content)
       await writable.close()

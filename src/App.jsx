@@ -555,7 +555,7 @@ export default function App() {
           {/* File tree pane */}
           <div
             className="sidebar-pane"
-            style={{ height: headings.length > 0 ? `${sidebarSplit}%` : '100%' }}
+            style={{ height: `${sidebarSplit}%` }}
           >
             <FileTree
               ref={fileTreeRef}
@@ -573,19 +573,15 @@ export default function App() {
             />
           </div>
 
-          {/* Drag divider + TOC — only when file has headings */}
-          {headings.length > 0 && (
-            <>
-              <div
-                className="sidebar-divider"
-                onMouseDown={handleDividerMouseDown}
-                title="드래그하여 크기 조절"
-              />
-              <div className="sidebar-pane" style={{ height: `${100 - sidebarSplit}%` }}>
-                <TocPanel headings={headings} onHeadingClick={handleHeadingClick} markdown={fileContent} />
-              </div>
-            </>
-          )}
+          {/* Drag divider + TOC — always visible */}
+          <div
+            className="sidebar-divider"
+            onMouseDown={handleDividerMouseDown}
+            title="드래그하여 크기 조절"
+          />
+          <div className="sidebar-pane" style={{ height: `${100 - sidebarSplit}%` }}>
+            <TocPanel headings={headings} onHeadingClick={handleHeadingClick} markdown={fileContent} />
+          </div>
         </aside>
 
         <main className="editor-area" ref={mainRef}>

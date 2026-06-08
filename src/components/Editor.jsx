@@ -364,9 +364,11 @@ const Editor = forwardRef(function Editor(
             Math.max(0, $from.parentOffset - 10), $from.parentOffset
           )
           for (const s of SNIPPETS) {
-            if (textBefore.endsWith(s.trigger)) {
+            const hasSpace = textBefore.endsWith(s.trigger + ' ')
+            if (textBefore.endsWith(s.trigger) || hasSpace) {
+              const matchLen = s.trigger.length + (hasSpace ? 1 : 0)
               snippetGuardRef.current = true
-              const from = $from.pos - s.trigger.length
+              const from = $from.pos - matchLen
               const to = $from.pos
               const text = s.replace()
               setTimeout(() => {
@@ -407,9 +409,11 @@ const Editor = forwardRef(function Editor(
           Math.max(0, $from.parentOffset - 10), $from.parentOffset
         )
         for (const s of SNIPPETS) {
-          if (textBefore.endsWith(s.trigger)) {
+          const hasSpace = textBefore.endsWith(s.trigger + ' ')
+          if (textBefore.endsWith(s.trigger) || hasSpace) {
+            const matchLen = s.trigger.length + (hasSpace ? 1 : 0)
             snippetGuardRef.current = true
-            const from = $from.pos - s.trigger.length
+            const from = $from.pos - matchLen
             const to = $from.pos
             editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, s.replace()).run()
             return
@@ -768,17 +772,19 @@ const Editor = forwardRef(function Editor(
     const before = val.slice(0, pos)
     // 스니펫 치환: /날짜, /회의
     const snippets = [
-      { trigger: '/날짜', len: 3, replace: todayStr },
-      { trigger: '/회의', len: 3, replace: meetingTemplate },
+      { trigger: '/날짜', replace: todayStr },
+      { trigger: '/회의', replace: meetingTemplate },
     ]
     for (const s of snippets) {
-      if (before.endsWith(s.trigger)) {
+      const hasSpace = before.endsWith(s.trigger + ' ')
+      if (before.endsWith(s.trigger) || hasSpace) {
+        const matchLen = s.trigger.length + (hasSpace ? 1 : 0)
         const text = s.replace()
-        val = before.slice(0, -s.len) + text + val.slice(pos)
+        val = before.slice(0, -matchLen) + text + val.slice(pos)
         setRawContent(val)
         onContentChange(val, countWords(val))
         requestAnimationFrame(() => {
-          const newPos = pos - s.len + text.length
+          const newPos = pos - matchLen + text.length
           ta.setSelectionRange(newPos, newPos)
         })
         return
