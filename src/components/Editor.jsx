@@ -475,7 +475,7 @@ const Editor = forwardRef(function Editor(
         editor.commands.clearHistory()
         isSettingContent.current = false
         onHeadingsChange?.(extractHeadings(editor))
-      }, 60)
+      }, 150)
     }
     load()
     return () => { cancelled = true }

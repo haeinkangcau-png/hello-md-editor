@@ -295,7 +295,6 @@ export default function App() {
 
     try {
       setFileLoading(true)
-      setHeadings([])
       const { content } = await readFile(file.path)
       setCurrentFile(file)
       setFileContent(content)
