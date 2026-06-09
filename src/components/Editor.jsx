@@ -164,7 +164,7 @@ function extractHeadings(editor) {
 }
 
 const Editor = forwardRef(function Editor(
-  { initialContent, onContentChange, onHeadingsChange, onSave, currentFilePath, onOpenScheduleSplit, onOpenSpecWindow, onLoadTemplate, toolbarPrefs = { showSchedule: true, showSpecViewer: true, showTemplate: false } },
+  { initialContent, onContentChange, onHeadingsChange, onSave, currentFilePath, onOpenScheduleSplit, onOpenSpecWindow, onLoadTemplate, toolbarPrefs = { showSchedule: true, showSpecViewer: false, showTemplate: false } },
   ref
 ) {
   const isSettingContent = useRef(false)

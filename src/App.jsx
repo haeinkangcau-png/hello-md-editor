@@ -30,7 +30,7 @@ export default function App() {
   // Toolbar feature toggles (gear menu in the status bar). Defaults: Spec Viewer on,
   // Template off, Schedule on. User changes are persisted and override the defaults.
   const [toolbarPrefs, setToolbarPrefs] = useState(() => {
-    const defaults = { showSchedule: true, showSpecViewer: true, showTemplate: false }
+    const defaults = { showSchedule: true, showSpecViewer: false, showTemplate: false }
     try {
       return { ...defaults, ...JSON.parse(localStorage.getItem('mdeditor-toolbar-prefs') || '{}') }
     } catch {
