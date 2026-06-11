@@ -14,13 +14,15 @@ export default function SearchBar({
   onReplace,
   onReplaceAll,
   onClose,
+  focusToken,
 }) {
   const inputRef = useRef(null)
 
+  // Focus + select on open and whenever focusToken changes (re-pressing Ctrl+F).
   useEffect(() => {
     inputRef.current?.focus()
     inputRef.current?.select()
-  }, [])
+  }, [focusToken])
 
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Escape') { e.preventDefault(); onClose() }

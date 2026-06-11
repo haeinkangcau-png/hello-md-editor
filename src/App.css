@@ -1233,6 +1233,40 @@ kbd {
 .settings-item:hover { background: var(--color-border-light); }
 .settings-item input { cursor: pointer; margin: 0; }
 
+/* 툴바: 표 넓게 보기 토글 + 폭 슬라이더 */
+.wide-table-ctrl { display: flex; align-items: center; gap: 8px; }
+.wide-table-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.wide-table-toggle:hover { background: var(--color-border-light); color: var(--color-text); }
+.wide-table-toggle.active { background: #e8f4f0; color: #1a544a; border-color: #b8ddd0; }
+.wide-table-slider { width: 88px; cursor: pointer; accent-color: #4caf50; }
+.wide-table-slider:disabled { cursor: default; opacity: 0.4; }
+.settings-sep { height: 1px; background: var(--color-border); margin: 5px 0; }
+.settings-width {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 8px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.settings-width input[type="range"] { flex: 1; cursor: pointer; accent-color: #4caf50; }
+.settings-width .sw-val { min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: var(--color-text); }
+
 /* Gear inside the status bar (bottom-right): subtle, borderless, opens upward */
 .status-bar .settings-menu { display: inline-flex; align-items: center; margin-left: 2px; }
 .status-bar .settings-btn {
@@ -1411,7 +1445,28 @@ kbd {
 .editor-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 32px max(32px, calc(50% - 380px));
+  overflow-x: auto;            /* 넓은 표가 본문보다 넓어질 때 가로 스크롤 */
+  padding: 32px max(32px, calc(50% - 380px));   /* 본문(텍스트)은 760px 고정 */
+}
+
+/* 넓게 보기:
+   1) 콘텐츠 영역을 '표 폭(--table-width)'만큼 넓힘(중앙 정렬, 에디터 폭이 상한 → 가로스크롤 없음)
+   2) 텍스트 블록은 760px로 유지하고 그 안에서 중앙 정렬
+   3) 표는 넓어진 영역 안에서 '내용 폭'으로 줄이고(여백 제거) 중앙 정렬, 영역을 넘으면 줄바꿈 */
+.editor-wrapper.wide-tables .editor-scroll {
+  padding-left: max(32px, calc(50% - var(--table-width, 760px) / 2));
+  padding-right: max(32px, calc(50% - var(--table-width, 760px) / 2));
+}
+.editor-wrapper.wide-tables .ProseMirror > :not(.tableWrapper) {
+  max-width: 760px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.editor-wrapper.wide-tables .ProseMirror > .tableWrapper > table {
+  width: auto;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .editor-content {
@@ -1529,9 +1584,11 @@ kbd {
 /* Target all tables inside ProseMirror regardless of class */
 .ProseMirror table {
   border-collapse: collapse !important;
+  /* 표 폭(넓게 보기에서 .tableWrapper 폭)을 가득 채우되, 컬럼 폭은
+     내용량에 비례해 자동 배분(긴 칸 넓게, 짧은 칸 좁게) */
+  table-layout: auto;
   width: 100%;
   font-size: 0.95em;
-  table-layout: fixed;
 }
 
 .ProseMirror table th,
@@ -1540,14 +1597,15 @@ kbd {
   padding: 8px 12px;
   vertical-align: top;
   position: relative;
-  min-width: 80px;
+  white-space: normal;
+  overflow-wrap: anywhere;
   box-sizing: border-box;
 }
 
 .ProseMirror table th {
   background: var(--color-surface) !important;
   font-weight: 600;
-  text-align: left;
+  text-align: center;
 }
 
 .ProseMirror table tr:nth-child(even) td {

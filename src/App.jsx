@@ -30,13 +30,23 @@ export default function App() {
   // Toolbar feature toggles (gear menu in the status bar). Defaults: Spec Viewer on,
   // Template off, Schedule on. User changes are persisted and override the defaults.
   const [toolbarPrefs, setToolbarPrefs] = useState(() => {
-    const defaults = { showSchedule: true, showSpecViewer: false, showTemplate: false }
+    const defaults = { showSchedule: true, showSpecViewer: false, showTemplate: false, wideEditor: false }
     try {
       return { ...defaults, ...JSON.parse(localStorage.getItem('mdeditor-toolbar-prefs') || '{}') }
     } catch {
       return defaults
     }
   })
+  // 넓게 보기에서 사용자가 조절하는 표 영역 폭(px). 텍스트 폭(760)은 고정.
+  const [tableWidth, setTableWidthState] = useState(() => {
+    const v = parseInt(localStorage.getItem('mdeditor-table-width') || '', 10)
+    return Number.isFinite(v) ? Math.min(2400, Math.max(760, v)) : 1200
+  })
+  const setTableWidth = useCallback((w) => {
+    const clamped = Math.min(2400, Math.max(760, w))
+    setTableWidthState(clamped)
+    localStorage.setItem('mdeditor-table-width', String(clamped))
+  }, [])
   const toggleToolbarPref = useCallback((key) => {
     setToolbarPrefs(prev => {
       const next = { ...prev, [key]: !prev[key] }
@@ -713,6 +723,10 @@ export default function App() {
                   onOpenSpecWindow={handleOpenSpecWindow}
                   onLoadTemplate={handleLoadTemplate}
                   toolbarPrefs={toolbarPrefs}
+                  wideTables={toolbarPrefs.wideEditor}
+                  tableWidth={tableWidth}
+                  onToggleWide={() => toggleToolbarPref('wideEditor')}
+                  onTableWidthChange={setTableWidth}
                 />
               )
             ) : (
@@ -801,6 +815,8 @@ export default function App() {
         wordCount={wordCount}
         settings={toolbarPrefs}
         onToggleSetting={toggleToolbarPref}
+        editorWidth={tableWidth}
+        onEditorWidthChange={setTableWidth}
       />
     </div>
   )

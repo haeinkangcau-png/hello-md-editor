@@ -164,7 +164,7 @@ function extractHeadings(editor) {
 }
 
 const Editor = forwardRef(function Editor(
-  { initialContent, onContentChange, onHeadingsChange, onSave, currentFilePath, onOpenScheduleSplit, onOpenSpecWindow, onLoadTemplate, toolbarPrefs = { showSchedule: true, showSpecViewer: false, showTemplate: false } },
+  { initialContent, onContentChange, onHeadingsChange, onSave, currentFilePath, onOpenScheduleSplit, onOpenSpecWindow, onLoadTemplate, toolbarPrefs = { showSchedule: true, showSpecViewer: false, showTemplate: false }, wideTables = false, tableWidth = 1200, onToggleWide, onTableWidthChange },
   ref
 ) {
   const isSettingContent = useRef(false)
@@ -185,6 +185,8 @@ const Editor = forwardRef(function Editor(
 
   // ── Search state ───────────────────────────────────────────
   const [searchOpen, setSearchOpen] = useState(false)
+  // Bumped on each search-open request so an already-open search bar re-focuses its input.
+  const [searchFocusToken, setSearchFocusToken] = useState(0)
   const [query, setQuery] = useState('')
   const [replaceText, setReplaceText] = useState('')
   const [showReplace, setShowReplace] = useState(false)
@@ -464,6 +466,7 @@ const Editor = forwardRef(function Editor(
     },
     openSearch: () => {
       setSearchOpen(true)
+      setSearchFocusToken(t => t + 1)   // re-focus the field even if already open
     },
     // Called after save-time normalization; updates display without marking as 'modified'
     applyNormalized: (content) => {
@@ -933,7 +936,11 @@ const Editor = forwardRef(function Editor(
       : rawMatchIdx + 1
 
   return (
-    <div className="editor-wrapper" onKeyDown={handleKeyDown}>
+    <div
+      className={`editor-wrapper${wideTables ? ' wide-tables' : ''}`}
+      onKeyDown={handleKeyDown}
+      style={{ '--table-width': `${tableWidth}px` }}
+    >
       {/* ── Search bar ── */}
       {searchOpen && (
         <SearchBar
@@ -950,6 +957,7 @@ const Editor = forwardRef(function Editor(
           onReplace={handleReplace}
           onReplaceAll={handleReplaceAll}
           onClose={handleSearchClose}
+          focusToken={searchFocusToken}
         />
       )}
 
@@ -1053,6 +1061,33 @@ const Editor = forwardRef(function Editor(
             )}
           </div>
           )}
+
+          <div className="wide-table-ctrl">
+            <button
+              className={`wide-table-toggle${wideTables ? ' active' : ''}`}
+              onClick={() => onToggleWide?.()}
+              title="표를 넓게 보기"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="5" width="18" height="14" rx="1"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+                <line x1="10" y1="5" x2="10" y2="19"/>
+                <line x1="16" y1="5" x2="16" y2="19"/>
+              </svg>
+              표 넓게
+            </button>
+            <input
+              type="range"
+              className="wide-table-slider"
+              min="760"
+              max="2400"
+              step="40"
+              value={tableWidth}
+              disabled={!wideTables}
+              onChange={(e) => onTableWidthChange?.(Number(e.target.value))}
+              title={wideTables ? `표 폭 ${tableWidth}px` : '표 넓게 보기를 켜면 폭을 조절할 수 있습니다'}
+            />
+          </div>
 
           {toolbarPrefs.showSpecViewer && (
           <div className="schedule-btn-group">

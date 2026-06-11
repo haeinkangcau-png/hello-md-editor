@@ -7,7 +7,7 @@ const OPTIONS = [
   { key: 'showSpecViewer', label: 'Spec Viewer' },
 ]
 
-export default function SettingsMenu({ settings, onToggle, openUp = false }) {
+export default function SettingsMenu({ settings, onToggle, openUp = false, editorWidth, onEditorWidthChange }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
