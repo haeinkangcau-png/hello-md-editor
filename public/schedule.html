@@ -1373,15 +1373,20 @@ function exportHTML() {
   const actions = clone.querySelector('.toolbar-actions');
   if (actions) actions.remove();
 
-  // BroadcastChannel 스크립트 제거하고 즉시 render 호출로 대체
+  // 초기 렌더 + BroadcastChannel 동기화 블록을 standalone 초기화로 교체.
+  // ⚠ 정확한 마커(전체 문구)로 매칭해야 함: exportHTML() 소스 안에도 "초기 렌더"가
+  //    들어 있어 prefix만으로 매칭하면 이 함수 내부를 잘라 스크립트가 깨진다.
   const scripts = clone.querySelectorAll('script');
   scripts.forEach(s => {
-    // BroadcastChannel 관련 코드 제거
     if (s.textContent.includes('BroadcastChannel')) {
-      s.textContent = s.textContent.replace(/\/\/ ── 초기 렌더[\s\S]*$/, `
-// ── 초기 렌더 (standalone) ──
-render('fit');
-window.addEventListener('resize', () => { if (currentMode === 'fit') render('fit'); });
+      s.textContent = s.textContent.replace(/\/\/ ── 초기 렌더 \(DEFAULT_MD placeholder\)[\s\S]*$/, `
+// ── standalone 초기화 ──
+(function () {
+  var __ta = document.getElementById('mdInput');
+  if (__ta) __ta.value = ${JSON.stringify(md)};
+  render('fit');
+  window.addEventListener('resize', function () { if (currentMode === 'fit') render('fit'); });
+})();
 `);
     }
   });
