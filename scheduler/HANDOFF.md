@@ -1,24 +1,22 @@
-# 개발 일정 개발 일정 — 인수인계 (VS Code / Copilot)
+# 개발 일정표 — 인수인계 (VS Code / Copilot)
 
-간트 차트 형식의 **개발 일정 개발 일정표**. 빌드 도구·프레임워크 없는 **단일 HTML 파일**이며,
-일정 데이터는 파일 안에 내장된 **마크다운 DSL**로 작성합니다. 디자인시스템(표준
-Design System) 다크/라이트 테마를 따릅니다.
+간트 차트 형식의 **개발 일정표**. 빌드 도구·프레임워크 없는 **단일 HTML 파일**이며,
+일정 데이터는 파일 안에 내장된 **마크다운 DSL**로 작성합니다. 표준 디자인 시스템의
+다크/라이트 테마를 따릅니다.
 
 ---
 
 ## 1. 파일 구조
 
 ```
-개발 일정 개발 일정.html   ← 최종 산출물 (한글·공백 파일명)
+개발 일정.html            ← 최종 산출물 (한글·공백 파일명)
 schedule.html            ← 위 파일과 100% 동일한 ASCII 복사본 (편집/깃 관리에 편함)
 fonts/
   NeuroSansKR-Regular.ttf   (400)
   NeuroSansKR-Medium.ttf    (500)
   NeuroSansKR-Bold.ttf      (700)
-assets/
-  logo.svg               ← 개발 일정 워드마크 (currentColor, 다크에선 CSS filter:invert로 흰색)
 uploads/
-  schedule-legacy.html     ← 재디자인 이전 원본 백업 (참고용, 사용 안 함)
+  schedule-legacy.html      ← 재디자인 이전 원본 백업 (참고용, 사용 안 함)
 HANDOFF.md                  ← 이 문서
 ```
 
@@ -26,7 +24,7 @@ HANDOFF.md                  ← 이 문서
 > 한글 파일명은 삭제하거나, 반대로 한글본만 유지하세요. 하나를 고쳤으면 **반드시 다른 하나에도
 > 같은 내용을 복사**해야 합니다 (지금은 수동 동기화 상태).
 
-실행: 빌드 불필요. 브라우저로 HTML을 열면 됩니다. 단, **로컬 폰트/로고를 상대경로로
+실행: 빌드 불필요. 브라우저로 HTML을 열면 됩니다. 단, **로컬 폰트를 상대경로로
 참조**하므로 `file://` 직접 열기보다 간단한 정적 서버 권장
 (`npx serve` 또는 VS Code "Live Server" 확장).
 
@@ -81,7 +79,7 @@ DEFAULT_MD (또는 편집 textarea)
 
 ---
 
-## 4. 디자인 시스템 매핑 (디자인시스템)
+## 4. 디자인 시스템 매핑
 
 **색은 두 군데에 있습니다 — 둘 다 고쳐야 일관됩니다:**
 
@@ -95,9 +93,8 @@ DEFAULT_MD (또는 편집 textarea)
    - `CERT_DARK/LIGHT` (인허가), `TBD_DARK/LIGHT` (미정)
    - `applyPalette()`가 `currentTheme`에 따라 활성 팔레트(`PALETTE`/`CERT_STYLE`/`TBD_STYLE`)를 교체
 
-디자인시스템 규칙(준수 중): 다크 우선 · 1px 헤어라인 · 4px 그리드 · 액센트 블루는 절제(오늘 라인)
-· 숫자 tabular(`tnum`) · NeuroSans 서체 · 라운드 ≤ 8px. 전체 정의는
-디자인시스템 프로젝트의 `tokens/*.css`, `ui-kit.html` 참고.
+디자인 규칙(준수 중): 다크 우선 · 1px 헤어라인 · 4px 그리드 · 액센트 블루는 절제(오늘 라인)
+· 숫자 tabular(`tnum`) · 라운드 ≤ 8px.
 
 ---
 
@@ -116,7 +113,7 @@ DEFAULT_MD (또는 편집 textarea)
 
 - **색을 한 곳만 바꾸지 말 것** — CSS 변수(테마)와 JS 팔레트(바)는 별개입니다 (§4).
 - **`schedule.html` ↔ 한글 파일명** 수동 동기화 상태. 하나만 정본으로 정하길 권장.
-- **폰트/로고 상대경로** — `fonts/`, `assets/` 폴더를 HTML과 함께 옮겨야 깨지지 않음.
+- **폰트 상대경로** — `fonts/` 폴더를 HTML과 함께 옮겨야 깨지지 않음.
 - 파서는 단순 정규식 기반 — 한 줄 안 `|` 구분과 날짜 형식(`YYYY-MM-DD`)을 엄격히 따름.
 - 외부 라이브러리·CDN 없음. 인터넷 없이 동작 (폰트 로컬).
 - `render()`는 매번 `innerHTML` 전체 재생성 → 대량 데이터면 성능 고려 필요(현 규모는 무관).
