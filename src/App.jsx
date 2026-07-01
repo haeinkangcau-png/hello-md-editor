@@ -57,6 +57,16 @@ export default function App() {
   const [isDragOver, setIsDragOver] = useState(false)
 
   const [sidebarSplit, setSidebarSplit] = useState(60) // file-tree height %
+  // 좌측 사이드바 가로 폭(px). 드래그로 조절하고 localStorage에 저장.
+  const [sidebarWidth, setSidebarWidthState] = useState(() => {
+    const v = parseInt(localStorage.getItem('mdeditor-sidebar-width') || '', 10)
+    return Number.isFinite(v) ? Math.min(600, Math.max(180, v)) : 260
+  })
+  const setSidebarWidth = useCallback((w) => {
+    const clamped = Math.min(600, Math.max(180, w))
+    setSidebarWidthState(clamped)
+    localStorage.setItem('mdeditor-sidebar-width', String(clamped))
+  }, [])
   const [showPreview, setShowPreview] = useState(false)
   const [previewSplit, setPreviewSplit] = useState(50)  // editor width %
   const [scheduleSplit, setScheduleSplit] = useState(false)
@@ -97,6 +107,7 @@ export default function App() {
   const sidebarRef = useRef(null)
   const mainRef = useRef(null)
   const isDraggingDivider = useRef(false)
+  const isDraggingSidebarW = useRef(false)
   const isDraggingPreview = useRef(false)
   const isDraggingSchedule = useRef(false)
   const specChannelRef = useRef(null)
@@ -217,6 +228,29 @@ export default function App() {
     window.addEventListener('mouseup', onMouseUp)
   }, [])
 
+  // ── Sidebar width resize drag (horizontal) ─────────────────
+  const handleSidebarWidthMouseDown = useCallback((e) => {
+    e.preventDefault()
+    isDraggingSidebarW.current = true
+    document.body.style.cursor = 'ew-resize'
+    document.body.style.userSelect = 'none'
+
+    const onMouseMove = (e) => {
+      if (!isDraggingSidebarW.current || !sidebarRef.current) return
+      const left = sidebarRef.current.getBoundingClientRect().left
+      setSidebarWidth(e.clientX - left)
+    }
+    const onMouseUp = () => {
+      isDraggingSidebarW.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }, [setSidebarWidth])
+
   // ── Recent files ───────────────────────────────────────────
   const addToRecent = useCallback((file) => {
     setRecentFiles(prev => {
@@ -258,6 +292,28 @@ export default function App() {
       localStorage.setItem('md-viewer-recent', JSON.stringify(updated))
       return updated
     })
+  }, [])
+
+  // ── 다른 창과 동기화 ─────────────────────────────────────────
+  // 창이 여러 개 열려 있을 때, 한 창에서 최근 문서·노트북을 바꾸면
+  // localStorage가 갱신되고 다른 창들에서 'storage' 이벤트가 발생한다.
+  // (이 이벤트는 변경을 일으킨 창 자신에는 발생하지 않는다.)
+  // 각 창은 이를 받아 자신의 상태를 다시 읽어와 화면을 맞춘다.
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === 'md-viewer-recent') {
+        try {
+          const saved = JSON.parse(e.newValue || '[]')
+          setRecentFiles(saved.sort((a, b) => b.openedAt - a.openedAt))
+        } catch { /* ignore */ }
+      } else if (e.key === 'md-viewer-notebooks') {
+        try {
+          setProjects(JSON.parse(e.newValue || '[]'))
+        } catch { /* ignore */ }
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
   }, [])
 
   // ── Image cleanup helper ────────────────────────────────
@@ -514,6 +570,12 @@ export default function App() {
   useEffect(() => {
     const onKey = (e) => {
       if (!(e.ctrlKey || e.metaKey)) return
+      // Ctrl+Shift+N: 새 창 열기 (같은 프로세스 → 최근 문서·노트북 자동 동기화)
+      if (e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        window.electronAPI?.openNewWindow?.()
+        return
+      }
       if (e.key === 'n') {
         e.preventDefault()
         handleNewFile()
@@ -638,7 +700,7 @@ export default function App() {
 
       {/* ── Body ── */}
       <div className="app-body">
-        <aside className="sidebar" ref={sidebarRef}>
+        <aside className="sidebar" ref={sidebarRef} style={{ width: `${sidebarWidth}px` }}>
           {/* File tree pane */}
           <div
             className="sidebar-pane"
@@ -670,6 +732,12 @@ export default function App() {
             <TocPanel headings={headings} onHeadingClick={handleHeadingClick} markdown={fileContent} />
           </div>
         </aside>
+
+        <div
+          className="sidebar-resizer"
+          onMouseDown={handleSidebarWidthMouseDown}
+          title="드래그하여 사이드바 폭 조절"
+        />
 
         <main className="editor-area" ref={mainRef}>
           {/* Drag overlay */}

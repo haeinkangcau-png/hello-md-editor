@@ -114,6 +114,7 @@ function makeElectronAPI() {
     openFolder:       ()           => api.openFolder(),
     saveDialog:       defaultPath  => api.saveDialog(defaultPath),
     revealInExplorer: path         => api.revealInExplorer(path),
+    openPath:         target       => api.openPath(target).catch(e => ({ success: false, error: String(e?.message || e) })),
     createFolder:     dirPath      => wrap(api.createFolder(dirPath)),
     renameFile:       (o, n)       => wrap(api.renameFile(o, n)),
     saveImage:        (dir, name, b64) => wrap(api.saveImage(dir, name, b64)),
@@ -175,6 +176,9 @@ function makeWebAPI() {
     },
 
     revealInExplorer: async () => {},
+
+    // 웹 환경에서는 보안상 로컬 경로를 열 수 없다.
+    openPath: async () => ({ success: false, error: '웹 환경에서는 로컬 폴더를 열 수 없습니다' }),
 
     saveDialog: async (currentPath) => {
       try {
@@ -293,6 +297,7 @@ export const checkExists      = impl.checkExists
 export const openFolder       = impl.openFolder
 export const saveDialog       = impl.saveDialog
 export const revealInExplorer = impl.revealInExplorer
+export const openPath         = impl.openPath
 export const createFolder     = impl.createFolder
 export const renameFile       = impl.renameFile
 export const saveImage        = impl.saveImage

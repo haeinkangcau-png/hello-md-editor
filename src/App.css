@@ -212,6 +212,16 @@ html, body, #root {
 .sidebar-divider:hover { background: var(--color-accent); }
 .sidebar-divider:hover::after { opacity: 0; }
 
+/* Horizontal drag handle to resize sidebar width */
+.sidebar-resizer {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: ew-resize;
+  background: transparent;
+  transition: background 0.15s;
+}
+.sidebar-resizer:hover { background: var(--color-accent); }
+
 .file-tree {
   display: flex;
   flex-direction: column;
@@ -591,6 +601,21 @@ html, body, #root {
 .notebook-folder-body {
   border-left: 1px solid var(--color-border);
   margin-left: 11px;
+}
+
+/* 중첩 하위 폴더의 포함관계를 보여주는 세로 가이드선 (레이아웃에 영향 없도록 absolute) */
+.tree-children {
+  position: relative;
+}
+.tree-children::before {
+  content: '';
+  position: absolute;
+  left: var(--guide-x, 12px);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border);
+  pointer-events: none;
 }
 
 .inline-input-row {
@@ -1476,15 +1501,116 @@ kbd {
 /* ── Editor images ───────────────────────────────── */
 .ProseMirror img {
   max-width: 100%;
+  /* 웹에서 붙여넣은 원본 크기가 큰 이미지가 화면을 가득 채우지 않도록 높이 상한 */
+  max-height: 400px;
+  width: auto;
   height: auto;
+  object-fit: contain;
   border-radius: 6px;
   margin: 8px 0;
   cursor: default;
+}
+/* 미리보기(.md-doc)도 동일하게 제한 */
+.md-doc img {
+  max-width: 100%;
+  max-height: 400px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 .ProseMirror img.ProseMirror-selectednode {
   outline: 2px solid var(--color-accent, #4caf50);
   outline-offset: 2px;
 }
+
+/* ── 평문 폴더/파일 경로 링크 표시 ───────────────────── */
+.path-link {
+  color: #0f4f8a;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.path-link:hover { background: rgba(15, 79, 138, 0.08); border-radius: 3px; }
+
+/* ── 링크/경로 액션 팝업 ─────────────────────────────── */
+.link-action-popup {
+  position: fixed;
+  z-index: 1000;
+  background: var(--color-bg, #fff);
+  border: 1px solid var(--color-border, #d0d0d0);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+  padding: 8px;
+  max-width: 360px;
+  font-size: 12px;
+}
+.link-action-value {
+  color: var(--color-text-muted, #666);
+  margin-bottom: 8px;
+  word-break: break-all;
+  max-height: 3.2em;
+  overflow: hidden;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.link-action-buttons { display: flex; gap: 6px; }
+.link-action-buttons button {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border, #d0d0d0);
+  border-radius: 6px;
+  background: var(--color-surface, #f5f5f5);
+  color: var(--color-text, #222);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.link-action-buttons button:hover { background: var(--color-accent, #4caf50); color: #fff; border-color: var(--color-accent, #4caf50); }
+
+/* ── 이미지 확대 보기(라이트박스) ───────────────────── */
+.image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+.image-lightbox-img {
+  border-radius: 4px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  background: #fff;
+}
+.image-lightbox-img.fit {
+  max-width: 92vw;
+  max-height: 92vh;
+  object-fit: contain;
+  cursor: zoom-in;
+}
+.image-lightbox-img.actual {
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  cursor: zoom-out;
+}
+.image-lightbox-close {
+  position: fixed;
+  top: 14px;
+  right: 18px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.image-lightbox-close:hover { background: rgba(255, 255, 255, 0.3); }
 
 /* TipTap ProseMirror styles */
 .ProseMirror {

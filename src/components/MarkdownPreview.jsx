@@ -1,10 +1,30 @@
-import React, { useMemo, useEffect, useRef, useCallback } from 'react'
+import React, { useMemo, useEffect, useRef, useCallback, useState } from 'react'
 import { mdBlock } from '../utils/mdRenderer'
-import { isWeb, readImageAsBlob } from '../api'
+import { isWeb, readImageAsBlob, openPath } from '../api'
+import { isLocalPath } from '../utils/pathLink'
+import LinkActionPopup from './LinkActionPopup'
+import ImageLightbox from './ImageLightbox'
 
 export default function MarkdownPreview({ content, scrollRef, linkReg, sectionTitle, onClearSection, currentFilePath }) {
   const html = useMemo(() => mdBlock(content || '', linkReg), [content, linkReg])
   const bodyRef = useRef(null)
+  const [linkPopup, setLinkPopup] = useState(null) // { x, y, kind, value }
+  const [lightbox, setLightbox] = useState(null) // { src, alt }
+
+  const handleDoubleClick = useCallback((e) => {
+    const img = e.target.closest?.('img')
+    if (img) { e.preventDefault(); setLightbox({ src: img.currentSrc || img.src, alt: img.alt }) }
+  }, [])
+
+  // 링크 클릭 시: 외부로 바로 이동하지 않고 액션 팝업(열기/복사)을 띄운다.
+  const handleClick = useCallback((e) => {
+    const a = e.target.closest?.('a')
+    if (!a) return
+    const raw = a.getAttribute('href') || a.href || ''
+    if (!raw) return
+    e.preventDefault()
+    setLinkPopup({ x: e.clientX, y: e.clientY, kind: isLocalPath(raw) ? 'path' : 'url', value: raw })
+  }, [])
 
   // Web mode: replace ./relative image paths with blob URLs after render
   useEffect(() => {
@@ -45,9 +65,37 @@ export default function MarkdownPreview({ content, scrollRef, linkReg, sectionTi
       <div className="preview-body" ref={setBodyRef}>
         <div
           className="md-doc"
+          onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>
+      {linkPopup && (
+        <LinkActionPopup
+          x={linkPopup.x}
+          y={linkPopup.y}
+          kind={linkPopup.kind}
+          value={linkPopup.value}
+          onOpen={async () => {
+            const lp = linkPopup
+            setLinkPopup(null)
+            if (lp.kind === 'path') {
+              const r = await openPath(lp.value)
+              if (r && r.success === false) alert(r.error || '경로를 열 수 없습니다.')
+            } else {
+              window.open(lp.value, '_blank', 'noopener,noreferrer')
+            }
+          }}
+          onCopy={async () => {
+            try { await navigator.clipboard.writeText(linkPopup.value) } catch { /* ignore */ }
+            setLinkPopup(null)
+          }}
+          onClose={() => setLinkPopup(null)}
+        />
+      )}
+      {lightbox && (
+        <ImageLightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} />
+      )}
     </div>
   )
 }

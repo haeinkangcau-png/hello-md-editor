@@ -101,7 +101,7 @@ function TreeNode({ item, depth, currentFile, onFileSelect, saveStatus }) {
       </div>
 
       {item.isDirectory && expanded && (
-        <div>
+        <div className="tree-children" style={{ '--guide-x': `${indent + 5}px` }}>
           {!loading && children.length === 0 && (
             <div className="tree-empty" style={{ paddingLeft: indent + 22 }}>비어 있음</div>
           )}
@@ -230,7 +230,7 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
       </div>
 
       {item.isDirectory && expanded && (
-        <div>
+        <div className="tree-children" style={{ '--guide-x': `${indent + 5}px` }}>
           {!loading && children.length === 0 && !inlineInput && (
             <div className="tree-empty" style={{ paddingLeft: indent + 22 }}>비어 있음</div>
           )}
@@ -415,6 +415,17 @@ const FileTree = forwardRef(function FileTree(
   const saveFolderMeta = useCallback((newMeta) => {
     setFolderMeta(newMeta)
     localStorage.setItem('md-viewer-folder-meta', JSON.stringify(newMeta))
+  }, [])
+
+  // 다른 창에서 폴더 색상·순서가 바뀌면 이 창에도 반영한다. (App.jsx 참고)
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key !== 'md-viewer-folder-meta') return
+      try { setFolderMeta(JSON.parse(e.newValue || '{}')) }
+      catch { /* ignore */ }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
   }, [])
 
   const handleSetFolderColor = useCallback((path, color) => {

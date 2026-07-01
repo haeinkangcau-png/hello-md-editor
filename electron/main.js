@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, clipboard, shell, protocol, net } = require('electron')
 const fs = require('fs')
 const path = require('path')
-const { pathToFileURL } = require('url')
+const { pathToFileURL, fileURLToPath } = require('url')
 
 // Register custom protocol for local image access
 protocol.registerSchemesAsPrivileged([
@@ -13,13 +13,29 @@ protocol.registerSchemesAsPrivileged([
 const isDev = process.env.NODE_ENV === 'development'
 
 // ── File path from command-line (file association) ─────────
-function getArgFilePath() {
+function getArgFilePath(argv = process.argv) {
   // Skip argv[0] (electron/exe). Find first existing .md/.html arg.
-  return process.argv.slice(1).find(a =>
+  return argv.slice(1).find(a =>
     /\.(md|html?)$/i.test(a) && fs.existsSync(a)
   ) || null
 }
 let pendingOpenPath = getArgFilePath()
+
+// ── Single-instance lock ───────────────────────────────────
+// 앱을 두 번째로 실행하면 새 프로세스를 띄우지 않고, 이미 실행 중인
+// 프로세스 안에서 새 창을 연다. 이렇게 하면 모든 창이 같은 프로세스를
+// 공유하므로 최근 문서·노트북 등의 localStorage 변경이 'storage'
+// 이벤트로 다른 창에 즉시 전파된다. (App.jsx의 동기화 코드 참고)
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => {
+    // 두 번째 실행이 파일 경로를 들고 왔으면 그 파일을 열며 새 창을 띄운다.
+    pendingOpenPath = getArgFilePath(argv)
+    createWindow()
+  })
+}
 
 // ── Window ─────────────────────────────────────────────────
 function createWindow() {
@@ -230,6 +246,20 @@ ipcMain.handle('reveal-in-explorer', (_, filePath) => {
   shell.showItemInFolder(path.resolve(filePath))
 })
 
+// 문서 안의 로컬 폴더/파일 경로(예: E:\path\to\folder, \\server\share, file://)를 OS에서 연다.
+// 폴더면 탐색기로 열리고, 파일이면 연결된 기본 앱으로 열린다.
+ipcMain.handle('open-path', async (_, target) => {
+  try {
+    if (typeof target !== 'string' || !target.trim()) return { success: false, error: 'empty path' }
+    let p = target.trim()
+    if (/^file:\/\//i.test(p)) { try { p = fileURLToPath(p) } catch { /* keep as-is */ } }
+    const err = await shell.openPath(path.resolve(p))
+    return err ? { success: false, error: err } : { success: true }
+  } catch (e) {
+    return { success: false, error: String((e && e.message) || e) }
+  }
+})
+
 ipcMain.handle('save-dialog', async (_, defaultPath) => {
   const win = BrowserWindow.getFocusedWindow()
   const result = await dialog.showSaveDialog(win, {
@@ -302,6 +332,12 @@ ipcMain.handle('read-image-base64', (_, filePath) => {
   const mimeType = mime[ext] || 'application/octet-stream'
   const data = fs.readFileSync(resolved).toString('base64')
   return `data:${mimeType};base64,${data}`
+})
+
+// 같은 프로세스 안에서 새 편집기 창을 연다. (localStorage 동기화가 작동하는 방식)
+ipcMain.handle('open-new-window', async () => {
+  pendingOpenPath = null  // 새 창은 빈 상태로 시작
+  createWindow()
 })
 
 let scheduleWindow = null;

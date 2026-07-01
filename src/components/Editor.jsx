@@ -20,7 +20,10 @@ import SearchBar from './SearchBar'
 import { normalizeHtmlTables } from '../utils/mdRenderer'
 import { SearchHighlight, searchPluginKey } from '../utils/searchExtension'
 import { DateHighlight } from '../utils/dateHighlight'
-import { saveImage, isWeb, readImageAsBlob, openScheduleWindow } from '../api'
+import { saveImage, isWeb, readImageAsBlob, openScheduleWindow, openPath } from '../api'
+import { PathLink, findPathAtPos, isLocalPath } from '../utils/pathLink'
+import LinkActionPopup from './LinkActionPopup'
+import ImageLightbox from './ImageLightbox'
 
 // ── 날짜 유틸 ────────────────────────────────────────────────
 function fmtDate(d) {
@@ -182,6 +185,8 @@ const Editor = forwardRef(function Editor(
   const scheduleChannelRef = useRef(null)
   const rawContentRef = useRef('')
   const [calState, setCalState] = useState(null) // { x, y, dateStr, onApply }
+  const [linkPopup, setLinkPopup] = useState(null) // { x, y, kind: 'url'|'path', value }
+  const [lightbox, setLightbox] = useState(null) // { src, alt }
 
   // ── Search state ───────────────────────────────────────────
   const [searchOpen, setSearchOpen] = useState(false)
@@ -351,9 +356,17 @@ const Editor = forwardRef(function Editor(
       }),
       SearchHighlight,
       DateHighlight,
+      PathLink,
     ],
     content: '',
     editorProps: {
+      // 웹 페이지에서 긁어온 HTML을 붙여넣을 때 이미지는 제외한다(잡음 제거).
+      // 텍스트·링크·표 등은 그대로 마크다운으로 변환된다.
+      // 클립보드 비트맵 이미지 붙여넣기는 handlePaste에서 별도 처리하므로 영향 없음.
+      transformPastedHTML: (html) =>
+        html
+          .replace(/<img\b[^>]*>/gi, '')        // <img ...>
+          .replace(/<picture\b[\s\S]*?<\/picture>/gi, ''), // <picture>...</picture>
       handlePaste: (view, event) => {
         const items = Array.from(event.clipboardData?.items || [])
         const imageItems = items.filter(i => i.type.startsWith('image/'))
@@ -1149,12 +1162,38 @@ const Editor = forwardRef(function Editor(
         <div
           className="editor-scroll"
           onClick={(e) => {
+            // 링크/경로 열기·복사는 Ctrl(⌘)+클릭에서만 — 그냥 클릭은 커서 배치(편집)를 위해 비워둔다.
             if (e.ctrlKey || e.metaKey) {
+              // 1) 링크(앵커) → URL/경로 액션 팝업
               const a = e.target.closest('a')
-              if (a?.href) { e.preventDefault(); window.open(a.href, '_blank', 'noopener,noreferrer') }
-            } else {
-              handleWysiwygDateClick(e)
+              if (a) {
+                const raw = a.getAttribute('href') || a.href || ''
+                if (raw) {
+                  e.preventDefault()
+                  setCalState(null)
+                  setLinkPopup({ x: e.clientX, y: e.clientY, kind: isLocalPath(raw) ? 'path' : 'url', value: raw })
+                  return
+                }
+              }
+              // 2) 평문 폴더/파일 경로
+              const cx = e.clientX, cy = e.clientY
+              requestAnimationFrame(() => {
+                if (!editor) return
+                const { $from } = editor.state.selection
+                const pathHit = findPathAtPos($from.parent.textContent, $from.parentOffset)
+                if (pathHit) {
+                  setCalState(null)
+                  setLinkPopup({ x: cx, y: cy, kind: 'path', value: pathHit.path })
+                }
+              })
+              return
             }
+            // 그냥 클릭: 날짜 피커만 (경로/링크 팝업 없음 → 자유롭게 편집/커서 이동)
+            handleWysiwygDateClick(e)
+          }}
+          onDoubleClick={(e) => {
+            const img = e.target.closest?.('img')
+            if (img) { e.preventDefault(); setLightbox({ src: img.currentSrc || img.src, alt: img.alt }) }
           }}
         >
           <EditorContent editor={editor} className="editor-content" />
@@ -1176,6 +1215,36 @@ const Editor = forwardRef(function Editor(
             autoFocus
           />
         </div>
+      )}
+
+      {/* ── Image lightbox ── */}
+      {lightbox && (
+        <ImageLightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} />
+      )}
+
+      {/* ── Link/Path action popup ── */}
+      {linkPopup && (
+        <LinkActionPopup
+          x={linkPopup.x}
+          y={linkPopup.y}
+          kind={linkPopup.kind}
+          value={linkPopup.value}
+          onOpen={async () => {
+            const lp = linkPopup
+            setLinkPopup(null)
+            if (lp.kind === 'path') {
+              const r = await openPath(lp.value)
+              if (r && r.success === false) alert(r.error || '경로를 열 수 없습니다.')
+            } else {
+              window.open(lp.value, '_blank', 'noopener,noreferrer')
+            }
+          }}
+          onCopy={async () => {
+            try { await navigator.clipboard.writeText(linkPopup.value) } catch { /* ignore */ }
+            setLinkPopup(null)
+          }}
+          onClose={() => setLinkPopup(null)}
+        />
       )}
 
       {/* ── Date picker popup ── */}
