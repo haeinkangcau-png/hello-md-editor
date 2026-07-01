@@ -587,12 +587,15 @@ export default function App() {
       }
       if (e.key === 'f') {
         e.preventDefault()
-        if (currentFile) editorRef.current?.openSearch()
+        if (currentFile) {
+          if (isHtml) htmlEditorRef.current?.openSearch()
+          else editorRef.current?.openSearch()
+        }
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [handleSave, handleSaveAs, handleNewFile, currentFile])
+  }, [handleSave, handleSaveAs, handleNewFile, currentFile, isHtml])
 
   // ── Drag & Drop ────────────────────────────────────────────
   const handleDragOver = useCallback((e) => {
@@ -775,6 +778,7 @@ export default function App() {
                   ref={htmlEditorRef}
                   key={currentFile.path}
                   initialContent={fileContent}
+                  filePath={currentFile.path}
                   onContentChange={handleContentChange}
                   onHeadingsChange={setHeadings}
                 />

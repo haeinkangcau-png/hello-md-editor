@@ -527,6 +527,9 @@ html, body, #root {
 }
 .tree-node.is-dir .tree-icon  { color: #e8a020; }
 .tree-node:not(.is-dir) .tree-icon { color: #82c982; }
+/* HTML 파일 아이콘은 주황색으로 md/텍스트(초록)와 구분 */
+.tree-node:not(.is-dir) .tree-icon-html,
+.recent-item-icon.tree-icon-html { color: #e07b4c; }
 .tree-node.active .tree-icon { color: var(--color-accent); }
 
 .tree-name {
@@ -2121,11 +2124,13 @@ kbd {
 
 .html-editor-body {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   display: flex;
 }
 
-.html-text-iframe {
+.html-text-iframe,
+.html-viewer-iframe {
   flex: 1;
   width: 100%;
   height: 100%;
@@ -2139,31 +2144,166 @@ kbd {
   height: 100%;
 }
 
-.html-raw-textarea {
+/* Raw 소스 편집기: 투명 textarea(위) + 색칠된 pre(아래) 오버레이 */
+.html-raw-editor {
+  position: relative;
   flex: 1;
   min-width: 0;
-  border: none;
-  border-right: 1px solid var(--color-border);
-  padding: 20px 24px;
+  min-height: 0;
+  border-left: 1px solid var(--color-border);
+  overflow: hidden;
+  background: var(--color-bg);
+}
+.html-raw-highlight,
+.html-raw-textarea {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 20px 24px 44px;   /* 하단 여백: 가로 스크롤바와 코드가 겹치지 않도록 */
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.65;
-  resize: none;
-  outline: none;
-  background: var(--color-bg);
-  color: var(--color-text);
   tab-size: 2;
+  /* 줄바꿈 없음: textarea(입력층)와 pre(표시층)의 줄이 100% 일치해야 캐럿·선택·하이라이트가 정확히 겹친다 */
   white-space: pre;
   overflow-wrap: normal;
-  overflow-x: auto;
+  border: none;
 }
+.html-raw-highlight {
+  overflow: hidden;              /* 스크롤은 textarea에서 동기화 */
+  pointer-events: none;
+  z-index: 0;
+  color: var(--color-text);
+}
+/* style 접기(읽기 전용): pre가 직접 스크롤·선택 가능 */
+.html-raw-editor.folded .html-raw-highlight {
+  overflow: auto;
+  pointer-events: auto;
+  white-space: pre-wrap;         /* 축약 뷰는 줄바꿈해서 가로 스크롤 없이 */
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.html-raw-highlight code {
+  font: inherit;
+  white-space: inherit;
+  tab-size: inherit;
+}
+.html-raw-textarea {
+  overflow: auto;
+  resize: none;
+  outline: none;
+  background: transparent;
+  color: transparent;            /* 텍스트는 뒤 pre가 보여줌 — 캐럿/선택만 표시 */
+  caret-color: var(--color-text);
+  z-index: 1;
+}
+.html-raw-textarea::selection { background: rgba(130, 201, 130, 0.35); }
+
+/* 코드편집기 스크롤바: 커스텀 스크롤바는 요소 cursor(I-beam)를 물려받으므로 명시적으로 기본 커서 지정 + 조금 크게 */
+.html-raw-textarea::-webkit-scrollbar { width: 12px; height: 12px; cursor: default; }
+.html-raw-textarea::-webkit-scrollbar-track { cursor: default; }
+.html-raw-textarea::-webkit-scrollbar-thumb { cursor: default; }
+.html-raw-textarea::-webkit-scrollbar-corner { background: transparent; cursor: default; }
+
+/* 토큰 색상 — 실제 화면에 보이는 텍스트(tok-text)만 진하게, 마크업/코드는 아주 연하게 흐림 */
+.tok-text    { color: #14140f; font-weight: 600; }
+.tok-tag     { color: #c3cbd2; }
+.tok-comment { color: #d0d4d8; font-style: italic; }
+/* <script> 본문(DATA 등)은 편집 대상이므로 읽기 쉬운 색 + 옅은 배경으로 그룹 표시 */
+.tok-code    { color: #3c4b5a; background: rgba(60, 75, 90, 0.05); }
+
+/* 미리보기 클릭으로 찾은 위치 하이라이트 */
+.html-loc-hit {
+  background: #ffe27a;
+  color: #1a1a18;
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px #f5c518;
+}
+/* 접힘 뷰: 편집 가능한 텍스트 span — 테두리 박스 없이 커서/옅은 배경으로만 표시 */
+.html-raw-editor.folded [contenteditable] { cursor: text; outline: none; border: none; border-radius: 2px; }
+.html-raw-editor.folded [contenteditable]:hover { background: rgba(9, 105, 218, 0.06); }
+.html-raw-editor.folded [contenteditable]:focus { outline: none; background: rgba(9, 105, 218, 0.12); }
+
+/* 접힘 칩 […] — 클릭하면 그 부분만 펼쳐짐 */
+.fold-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 15px;
+  padding: 0 5px;
+  margin: 0 1px;
+  vertical-align: baseline;
+  background: #e7ecf1;
+  border: 1px solid #cbd5df;
+  border-radius: 4px;
+  color: #7a8794;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s, color 0.12s;
+}
+.fold-chip:hover { background: var(--color-accent, #4caf50); border-color: var(--color-accent, #4caf50); color: #fff; }
+
+/* 검색 매치 하이라이트 */
+.search-hit { background: #fff2a8; color: #1a1a18; border-radius: 2px; }
+.search-current { background: #ffb300; color: #1a1a18; border-radius: 2px; box-shadow: 0 0 0 1px #e69500; }
+
+/* 코드편집기 검색 바 */
+.html-search-bar {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  padding: 4px 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+}
+.html-search-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 12px;
+  width: 150px;
+  color: var(--color-text);
+  font-family: var(--font-ui);
+}
+.html-search-count {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  min-width: 38px;
+  text-align: center;
+}
+.html-search-bar button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1;
+}
+.html-search-bar button:hover { background: var(--color-surface2); color: var(--color-text); }
 
 .html-raw-divider {
   width: 5px;
   flex-shrink: 0;
   background: var(--color-border);
   cursor: ew-resize;
+  transition: background 0.15s;
 }
+.html-raw-divider:hover { background: var(--color-accent); }
+/* 드래그 중 iframe/에디터가 마우스 이벤트를 가로채지 않도록 차단 → 부드러운 리사이즈 */
+.html-raw-mode.dragging { cursor: ew-resize; user-select: none; }
+.html-raw-mode.dragging .html-raw-preview,
+.html-raw-mode.dragging .html-raw-editor { pointer-events: none; }
 
 .html-raw-preview {
   flex: 1;
@@ -2179,6 +2319,9 @@ kbd {
   margin-left: auto;
   flex-shrink: 0;
 }
+
+/* 태그 접기 토글 — 툴바 우측 정렬 */
+.html-fold-toggle { margin-left: auto; flex-shrink: 0; }
 
 .html-width-input-wrap {
   display: flex;

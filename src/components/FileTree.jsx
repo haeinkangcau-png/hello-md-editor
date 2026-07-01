@@ -24,14 +24,31 @@ function sortFolderChildren(children, folderMeta) {
   return [...sortedDirs, ...files]
 }
 
-function FileIcon() {
+function FileIcon({ name = '' }) {
+  // HTML 파일: 문서 안에 < > 코드 표시
+  if (/\.html?$/i.test(name)) {
+    return (
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <polyline points="10 13 8.5 15 10 17"/>
+        <polyline points="14 13 15.5 15 14 17"/>
+      </svg>
+    )
+  }
+  // 마크다운/텍스트 문서
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <polyline points="14,2 14,8 20,8"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="8" y1="13" x2="14" y2="13"/>
+      <line x1="8" y1="17" x2="16" y2="17"/>
     </svg>
   )
 }
+
+// 파일 확장자에 따른 아이콘 색 클래스
+const fileIconClass = (name) => /\.html?$/i.test(name) ? 'tree-icon tree-icon-html' : 'tree-icon'
 
 function FolderIcon({ open }) {
   return open ? (
@@ -92,8 +109,8 @@ function TreeNode({ item, depth, currentFile, onFileSelect, saveStatus }) {
             <polyline points="9 18 15 12 9 6"/>
           </svg>
         )}
-        <span className="tree-icon">
-          {item.isDirectory ? <FolderIcon open={expanded} /> : <FileIcon />}
+        <span className={item.isDirectory ? 'tree-icon' : fileIconClass(item.name)}>
+          {item.isDirectory ? <FolderIcon open={expanded} /> : <FileIcon name={item.name} />}
         </span>
         <span className="tree-name">{item.name}</span>
         {isActive && saveStatus === 'modified' && <span className="tree-dot" title="수정됨" />}
@@ -142,7 +159,7 @@ function RefreshIcon() {
 
 function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, onContextMenu,
   inlineInput, inlineValue, setInlineValue, inlineInputRef, onInlineKeyDown, onInlineBlur,
-  parentRefresh, onFolderSelect, folderMeta, siblings }) {
+  parentRefresh, onFolderSelect, folderMeta, siblings, refreshVersion }) {
   const [expanded, setExpanded] = useState(false)
   const [children, setChildren] = useState([])
   const [loading, setLoading] = useState(false)
@@ -173,6 +190,13 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
       catch { setChildren([]) }
     }
   }, [item])
+
+  // 전역 새로고침(refreshVersion 증가) 시, 펼쳐진 하위 폴더도 재조회 → 깊은 갱신
+  const didMountRef = useRef(false)
+  useEffect(() => {
+    if (!didMountRef.current) { didMountRef.current = true; return }
+    if (item.isDirectory && expanded) refreshChildren()
+  }, [refreshVersion]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (item.isDirectory && inlineInput &&
@@ -209,8 +233,8 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
             <polyline points="9 18 15 12 9 6"/>
           </svg>
         )}
-        <span className="tree-icon" style={folderColor ? { color: folderColor } : {}}>
-          {item.isDirectory ? <FolderIcon open={expanded} /> : <FileIcon />}
+        <span className={item.isDirectory ? 'tree-icon' : fileIconClass(item.name)} style={folderColor ? { color: folderColor } : {}}>
+          {item.isDirectory ? <FolderIcon open={expanded} /> : <FileIcon name={item.name} />}
         </span>
         {isRenaming ? (
           <input
@@ -241,7 +265,7 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
               inlineInput={inlineInput} inlineValue={inlineValue} setInlineValue={setInlineValue}
               inlineInputRef={inlineInputRef} onInlineKeyDown={onInlineKeyDown} onInlineBlur={onInlineBlur}
               parentRefresh={refreshChildren} onFolderSelect={onFolderSelect}
-              folderMeta={folderMeta} siblings={sortedChildren} />
+              folderMeta={folderMeta} siblings={sortedChildren} refreshVersion={refreshVersion} />
           ))}
           {/* 인라인 새 폴더/파일 입력 (서브폴더) */}
           {inlineInput && (inlineInput.type === 'folder' || inlineInput.type === 'file') &&
@@ -272,7 +296,7 @@ function NotebookTreeNode({ item, depth, currentFile, onFileSelect, saveStatus, 
 
 const NotebookFolder = forwardRef(function NotebookFolder({ project, projectIndex, currentFile, onFileSelect, saveStatus,
   onContextMenu, onRootContextMenu, inlineInput, inlineValue, setInlineValue,
-  inlineInputRef, onInlineKeyDown, onInlineBlur, onFolderSelect, folderMeta }, ref) {
+  inlineInputRef, onInlineKeyDown, onInlineBlur, onFolderSelect, folderMeta, refreshVersion }, ref) {
   const [expanded, setExpanded] = useState(true)
   const [children, setChildren] = useState([])
   const [loading, setLoading] = useState(false)
@@ -295,6 +319,13 @@ const NotebookFolder = forwardRef(function NotebookFolder({ project, projectInde
   }, [project.path])
 
   useImperativeHandle(ref, () => ({ refresh: refreshChildren }), [refreshChildren])
+
+  // 전역 새로고침 시 최상위 목록 재조회(하위 폴더는 각 노드가 refreshVersion으로 처리)
+  const nbMountRef = useRef(false)
+  useEffect(() => {
+    if (!nbMountRef.current) { nbMountRef.current = true; return }
+    if (loaded) refreshChildren()
+  }, [refreshVersion]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (inlineInput && (inlineInput.type === 'folder' || inlineInput.type === 'file') &&
@@ -361,7 +392,7 @@ const NotebookFolder = forwardRef(function NotebookFolder({ project, projectInde
               inlineInput={inlineInput} inlineValue={inlineValue} setInlineValue={setInlineValue}
               inlineInputRef={inlineInputRef} onInlineKeyDown={onInlineKeyDown} onInlineBlur={onInlineBlur}
               parentRefresh={refreshChildren} onFolderSelect={onFolderSelect}
-              folderMeta={folderMeta} siblings={sortedChildren} />
+              folderMeta={folderMeta} siblings={sortedChildren} refreshVersion={refreshVersion} />
           ))}
           {/* 인라인 새 폴더/파일 입력 */}
           {inlineInput && (inlineInput.type === 'folder' || inlineInput.type === 'file') &&
@@ -406,6 +437,7 @@ const FileTree = forwardRef(function FileTree(
   const [inlineValue, setInlineValue] = useState('')
   const inlineInputRef = useRef(null)
   const notebookRefs = useRef({})
+  const [refreshVersion, setRefreshVersion] = useState(0) // 전역 새로고침 시 증가 → 펼쳐진 모든 노드 재조회
 
   const [folderMeta, setFolderMeta] = useState(() => {
     try { return JSON.parse(localStorage.getItem('md-viewer-folder-meta') || '{}') }
@@ -553,7 +585,9 @@ const FileTree = forwardRef(function FileTree(
   }, [])
 
   const handleRefreshNotebooks = useCallback(() => {
+    // 최상위 즉시 재조회 + 펼쳐진 하위 폴더까지 깊은 갱신(refreshVersion 증가)
     Object.values(notebookRefs.current).forEach(r => r?.refresh())
+    setRefreshVersion(v => v + 1)
   }, [])
 
   const handleRefreshExplorer = useCallback(() => {
@@ -725,6 +759,7 @@ const FileTree = forwardRef(function FileTree(
               onInlineBlur={handleInlineSubmit}
               onFolderSelect={onFolderSelect}
               folderMeta={folderMeta}
+              refreshVersion={refreshVersion}
             />
           ))}
         </div>
@@ -782,7 +817,7 @@ const FileTree = forwardRef(function FileTree(
                 onContextMenu={(e) => handleContextMenu(e, file)}
                 title={file.path}
               >
-                <span className="recent-item-icon"><FileIcon /></span>
+                <span className={`recent-item-icon ${/\.html?$/i.test(file.name) ? 'tree-icon-html' : ''}`}><FileIcon name={file.name} /></span>
                 <div className="recent-item-info">
                   <span className="recent-item-name">{file.name}</span>
                   <span className="recent-item-dir">{dir}</span>
