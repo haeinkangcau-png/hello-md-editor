@@ -91,6 +91,26 @@ For one-off local testing on a trusted machine:
 xattr -dr com.apple.quarantine "Hi MD Power.app"
 ```
 
+## Pre-PR Checks
+
+The native shell is optional. Before opening or updating a PR, verify that the existing surfaces still work:
+
+```bash
+npm run copy:specviewer
+npx vite build
+bash native/scripts/build-mac-native-app.sh
+node native/scripts/benchmark-performance.mjs --runs=1 --load-files=6
+```
+
+The existing Windows/Electron release workflow should keep using `npm run build:win` or `npx electron-builder --win` on Windows. The native Swift scripts should not be called from Windows jobs.
+
+Useful native debug logging:
+
+```bash
+HIMD_NATIVE_DEBUG=1 "release/Hi MD Power.app/Contents/MacOS/HiMDPower"
+tail -f ~/Library/Logs/HiMDPower/launch.log
+```
+
 Update from the original repository:
 
 ```bash

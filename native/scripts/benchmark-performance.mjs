@@ -468,7 +468,10 @@ async function benchmarkNative() {
 
   writeFileSync(launchLog, '')
   const before = parsePs()
-  const native = spawn(appBin, [], { stdio: ['ignore', 'ignore', 'ignore'] })
+  const native = spawn(appBin, [], {
+    stdio: ['ignore', 'ignore', 'ignore'],
+    env: { ...process.env, HIMD_BENCHMARK: '1' },
+  })
   const { match } = await waitForFileMatch(launchLog, /Native bench: root-ready-ms ([\d.]+)/, 10000)
   const rootReadyMs = Number(match[1])
   await sleep(1000)

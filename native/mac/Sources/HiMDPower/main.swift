@@ -28,6 +28,9 @@ private enum NativeLog {
   }
 }
 
+private let isDebugLoggingEnabled = ProcessInfo.processInfo.environment["HIMD_NATIVE_DEBUG"] == "1"
+private let isBenchmarkMode = ProcessInfo.processInfo.environment["HIMD_BENCHMARK"] == "1" || ProcessInfo.processInfo.environment["HIMD_BENCH_FILE_LIST"] != nil
+
 private func mimeType(for path: String) -> String {
   switch URL(fileURLWithPath: path).pathExtension.lowercased() {
   case "png": return "image/png"
@@ -106,7 +109,9 @@ private final class AppBundleSchemeHandler: NSObject, WKURLSchemeHandler {
     let decodedPath = rawPath.removingPercentEncoding ?? rawPath
     let relativePath = decodedPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     let fileURL = distURL.appendingPathComponent(relativePath).standardizedFileURL
-    NativeLog.write("Bundle request: \(url.absoluteString) -> \(fileURL.lastPathComponent)")
+    if isDebugLoggingEnabled {
+      NativeLog.write("Bundle request: \(url.absoluteString) -> \(fileURL.lastPathComponent)")
+    }
 
     guard fileURL.path.hasPrefix(distURL.path + "/") || fileURL.path == distURL.path else {
       urlSchemeTask.didFailWithError(NSError(domain: "HiMDPower", code: 403))
@@ -169,7 +174,9 @@ private final class DroppableWebView: WKWebView {
 
   override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
     let url = acceptedFileURL(from: sender)
-    NativeLog.write("draggingEntered: \(url?.path ?? "no accepted file")")
+    if isDebugLoggingEnabled {
+      NativeLog.write("draggingEntered: \(url?.path ?? "no accepted file")")
+    }
     return url == nil ? [] : .copy
   }
 
@@ -605,7 +612,9 @@ private final class NativeWindow: NSObject, WKNavigationDelegate, NSWindowDelega
     config.setURLSchemeHandler(LocalImageSchemeHandler(), forURLScheme: "local-image")
 
     let userContentController = WKUserContentController()
-    userContentController.addUserScript(WKUserScript(source: diagnosticsScript, injectionTime: .atDocumentStart, forMainFrameOnly: false))
+    if isDebugLoggingEnabled {
+      userContentController.addUserScript(WKUserScript(source: diagnosticsScript, injectionTime: .atDocumentStart, forMainFrameOnly: false))
+    }
     userContentController.addUserScript(WKUserScript(source: bridgeScript, injectionTime: .atDocumentStart, forMainFrameOnly: false))
     userContentController.add(nativeBridge, name: "nativeAPI")
     userContentController.add(consoleLogHandler, name: "nativeConsole")
@@ -647,15 +656,19 @@ private final class NativeWindow: NSObject, WKNavigationDelegate, NSWindowDelega
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
     didLoadPage = true
     NativeLog.write("Loaded page \(pageName)")
-    pollRootReadyBenchmark()
-    logPageState(webView, label: "didFinish")
-    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self, weak webView] in
-      guard let self, let webView else { return }
-      self.logPageState(webView, label: "after 1s")
+    if isBenchmarkMode {
+      pollRootReadyBenchmark()
     }
-    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self, weak webView] in
-      guard let self, let webView else { return }
-      self.logPageState(webView, label: "after 3s")
+    if isDebugLoggingEnabled {
+      logPageState(webView, label: "didFinish")
+      DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self, weak webView] in
+        guard let self, let webView else { return }
+        self.logPageState(webView, label: "after 1s")
+      }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self, weak webView] in
+        guard let self, let webView else { return }
+        self.logPageState(webView, label: "after 3s")
+      }
     }
     afterLoad?(webView)
     if let queuedOpenFilePath {
@@ -728,16 +741,6 @@ private final class NativeWindow: NSObject, WKNavigationDelegate, NSWindowDelega
     (() => {
       if (typeof window.__hiMdNativeOpenFileCallback === 'function') {
         window.__hiMdNativeOpenFileCallback(\(jsonLiteral(path)));
-        const expectedTitle = \(jsonLiteral(fileName + " — Hi MD Editor"));
-        const started = performance.now();
-        const poll = () => {
-          if (document.title === expectedTitle) {
-            console.info('bench:file-ready-ms', \(jsonLiteral(fileName)), (performance.now() - started).toFixed(1));
-            return;
-          }
-          requestAnimationFrame(poll);
-        };
-        requestAnimationFrame(poll);
         return true;
       }
       return false;
@@ -770,7 +773,7 @@ private final class NativeWindow: NSObject, WKNavigationDelegate, NSWindowDelega
 
   private func runFileBenchmark(_ paths: [String], index: Int) {
     guard index < paths.count else {
-      webView.evaluateJavaScript("console.info('bench:file-sequence-complete', \(paths.count));")
+      NativeLog.write("Native bench:file-sequence-complete \(paths.count)")
       return
     }
 
