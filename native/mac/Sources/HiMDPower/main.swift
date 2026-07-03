@@ -590,6 +590,7 @@ private final class NativeBridge: NSObject, WKScriptMessageHandler {
 private final class NativeWindow: NSObject, WKNavigationDelegate, NSWindowDelegate {
   let window: NSWindow
   let webView: DroppableWebView
+  private weak var app: AppController?
   private let distURL: URL
   private let pageName: String
   private let afterLoad: ((WKWebView) -> Void)?
@@ -602,6 +603,7 @@ private final class NativeWindow: NSObject, WKNavigationDelegate, NSWindowDelega
   private var queuedBenchmarkPaths: [String]?
 
   init(app: AppController, distURL: URL, pageName: String, title: String, pendingOpenPath: String?, afterLoad: ((WKWebView) -> Void)? = nil) {
+    self.app = app
     self.distURL = distURL
     self.pageName = pageName
     self.afterLoad = afterLoad
@@ -629,6 +631,7 @@ private final class NativeWindow: NSObject, WKNavigationDelegate, NSWindowDelega
       backing: .buffered,
       defer: false
     )
+    window.isReleasedWhenClosed = false
     window.title = title
     window.minSize = NSSize(width: 900, height: 600)
     window.contentView = webView
@@ -736,7 +739,6 @@ private final class NativeWindow: NSObject, WKNavigationDelegate, NSWindowDelega
       return
     }
 
-    let fileName = URL(fileURLWithPath: path).lastPathComponent
     let script = """
     (() => {
       if (typeof window.__hiMdNativeOpenFileCallback === 'function') {
@@ -842,6 +844,13 @@ private final class NativeWindow: NSObject, WKNavigationDelegate, NSWindowDelega
     alert.messageText = "Hi MD Power 화면을 열 수 없습니다."
     alert.informativeText = "\(error.localizedDescription)\n\nLog: \(NativeLog.url.path)"
     alert.runModal()
+  }
+
+  func windowWillClose(_ notification: Notification) {
+    webView.stopLoading()
+    webView.navigationDelegate = nil
+    webView.onFileDropped = nil
+    app?.windowDidClose(self)
   }
 }
 
@@ -969,6 +978,10 @@ private final class AppController: NSObject, NSApplicationDelegate {
     windows.append(nativeWindow)
     nativeWindow.show()
     return nativeWindow
+  }
+
+  func windowDidClose(_ closedWindow: NativeWindow) {
+    windows.removeAll { $0 === closedWindow }
   }
 
   private func openExternalFile(_ path: String) {
