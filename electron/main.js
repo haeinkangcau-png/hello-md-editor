@@ -47,7 +47,7 @@ function createWindow() {
     minHeight: 600,
     show: false,
     backgroundColor: '#ffffff',
-    title: 'Hello MD Editor',
+    title: 'Hi MD Editor',
     icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

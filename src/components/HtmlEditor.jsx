@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react'
-import { openPath } from '../api'
+import { openPath, IMG_BASE } from '../api'
 
 const HTML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;' }
 const escHtml = (s) => s.replace(/[&<>]/g, (c) => HTML_ESC[c])
@@ -206,7 +206,7 @@ const HtmlEditor = forwardRef(function HtmlEditor({ initialContent, filePath, on
   const previewDoc = useMemo(() => {
     if (!filePath || !window.electronAPI) return previewSrc
     const dir = filePath.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
-    const base = `<base href="local-image://img/${dir}/">`
+    const base = `<base href="${IMG_BASE}${dir}/">`
     const guard = '<script>(function(){document.addEventListener("click",function(e){'
       + 'var a=e.target&&e.target.closest?e.target.closest("a"):null;if(!a)return;'
       + 'var h=a.getAttribute("href")||"";'

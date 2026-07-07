@@ -637,6 +637,22 @@ export default function App() {
     }
   }, [handleFileSelect])
 
+  // Native (Tauri) OS file drop. The DOM handler above never fires under Tauri
+  // because it intercepts OS drops at the webview level, so we consume its
+  // native drag-drop event (real filesystem paths) and mirror the else-branch.
+  useEffect(() => {
+    const onFileDrop = window.electronAPI?.onFileDrop
+    if (!onFileDrop) return
+    return onFileDrop((paths) => {
+      const filePath = paths.find(p => p.endsWith('.md') || p.endsWith('.html'))
+      if (!filePath) return
+      const name = filePath.split(/[\\/]/).pop()
+      handleFileSelect({ path: filePath, name })
+      const parentDir = filePath.split(/[\\/]/).slice(0, -1).join('\\')
+      if (parentDir) fileTreeRef.current?.loadDir(parentDir)
+    })
+  }, [handleFileSelect])
+
   return (
     <div
       className="app"

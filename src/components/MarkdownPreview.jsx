@@ -5,6 +5,27 @@ import { isLocalPath } from '../utils/pathLink'
 import LinkActionPopup from './LinkActionPopup'
 import ImageLightbox from './ImageLightbox'
 
+let mermaidInstance = null
+let mermaidInitialized = false
+
+async function getMermaid() {
+  if (!mermaidInstance) {
+    const module = await import('mermaid')
+    mermaidInstance = module.default || module
+  }
+
+  if (!mermaidInitialized) {
+    mermaidInstance.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: 'default',
+    })
+    mermaidInitialized = true
+  }
+
+  return mermaidInstance
+}
+
 export default function MarkdownPreview({ content, scrollRef, linkReg, sectionTitle, onClearSection, currentFilePath }) {
   const html = useMemo(() => mdBlock(content || '', linkReg), [content, linkReg])
   const bodyRef = useRef(null)
@@ -40,6 +61,57 @@ export default function MarkdownPreview({ content, scrollRef, linkReg, sectionTi
       if (blobUrl) img.src = blobUrl
     })
   }, [html, currentFilePath])
+
+  // Render fenced ```mermaid code blocks into SVG diagrams.
+  useEffect(() => {
+    const el = bodyRef.current
+    if (!el) return undefined
+
+    const diagrams = Array.from(el.querySelectorAll('.dp-mermaid[data-mermaid-source]'))
+    if (!diagrams.length) return undefined
+
+    let cancelled = false
+
+    ;(async () => {
+      const mermaid = await getMermaid()
+      if (cancelled) return
+
+      diagrams.forEach(async (diagram, index) => {
+        const source = decodeURIComponent(diagram.getAttribute('data-mermaid-source') || '')
+        if (!source.trim()) return
+
+        const renderId = `dp-mermaid-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`
+        diagram.classList.add('is-rendering')
+
+        try {
+          const { svg, bindFunctions } = await mermaid.render(renderId, source)
+          if (cancelled) return
+          diagram.innerHTML = svg
+          bindFunctions?.(diagram)
+          diagram.classList.remove('is-rendering', 'is-error')
+          diagram.classList.add('is-rendered')
+        } catch (error) {
+          if (cancelled) return
+          diagram.innerHTML = ''
+          diagram.classList.remove('is-rendering')
+          diagram.classList.add('is-error')
+
+          const message = document.createElement('div')
+          message.className = 'dp-mermaid-error'
+          message.textContent = 'Mermaid 다이어그램을 렌더링할 수 없습니다.'
+
+          const fallback = document.createElement('pre')
+          fallback.className = 'dp-codeblock'
+          fallback.textContent = source
+
+          diagram.append(message, fallback)
+          console.warn('Mermaid render failed:', error)
+        }
+      })
+    })()
+
+    return () => { cancelled = true }
+  }, [html])
 
   const setBodyRef = useCallback((el) => {
     bodyRef.current = el

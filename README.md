@@ -40,7 +40,7 @@
 |------|-----------|
 | UI | React 18 + Vite |
 | 에디터 | TipTap 2 + tiptap-markdown |
-| 데스크탑 | Electron 26 |
+| 데스크탑 | Electron 42 |
 | 빌드/패키징 | electron-builder |
 | 웹 배포 | GitHub Pages (자동) |
 
@@ -48,7 +48,7 @@
 
 ## 개발 환경 설정
 
-**필요 사항**: Node.js 20 이상
+**필요 사항**: Node.js 24 LTS 이상
 
 ```bash
 git clone https://github.com/haeinkangcau-png/hello-md-editor.git
@@ -74,18 +74,40 @@ npx vite
 
 ## 빌드
 
-### Windows 설치 파일
+### Web bundle
+
+```bash
+npm run build:web
+# dist/ 생성
+```
+
+### Windows 설치 파일 (Electron)
 
 ```bash
 npm run build:win
 # → release/ 폴더에 .exe 생성
 ```
 
-### macOS DMG
+### macOS DMG (Electron)
 
 ```bash
 npm run build:mac
 # → release/ 폴더에 .dmg 생성 (x64 + arm64)
+```
+
+### Windows native (Tauri)
+
+```bash
+cd native/windows
+npm run build
+# native/windows/src-tauri/target/release/bundle/nsis/*.exe 생성
+```
+
+### macOS native (Swift)
+
+```bash
+bash native/scripts/build-mac-native-app.sh
+# release/Hi MD Power.app 생성
 ```
 
 > macOS에서 "개발자를 확인할 수 없음" 경고 시:  

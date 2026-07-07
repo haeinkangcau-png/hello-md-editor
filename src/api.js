@@ -1,6 +1,12 @@
-// Unified API: Electron IPC in desktop, File System Access API in browser
+// Unified API: Electron IPC / Tauri invoke in desktop, File System Access API in browser
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI
+const isTauri = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
+
+// Desktop URL prefix for local images embedded in the editor.
+// Under Tauri (WebView2) custom protocols are served over http://<scheme>.localhost;
+// under Electron the raw custom scheme works directly.
+export const IMG_BASE = isTauri ? 'http://local-image.localhost/img/' : 'local-image://img/'
 
 // ── Web: in-memory handle cache ────────────────────────────
 const fileHandles = new Map()

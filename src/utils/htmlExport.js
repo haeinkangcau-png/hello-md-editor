@@ -2,6 +2,27 @@
 import { isWeb, readImageAsBlob } from '../api'
 import { mdBlock, makeHeadingId } from './mdRenderer'
 
+let exportMermaidInstance = null
+let exportMermaidInitialized = false
+
+async function getExportMermaid() {
+  if (!exportMermaidInstance) {
+    const module = await import('mermaid')
+    exportMermaidInstance = module.default || module
+  }
+
+  if (!exportMermaidInitialized) {
+    exportMermaidInstance.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: 'default',
+    })
+    exportMermaidInitialized = true
+  }
+
+  return exportMermaidInstance
+}
+
 // Convert a blob URL or file path to a base64 data URL
 async function toDataUrl(absPath) {
   if (isWeb) {
@@ -36,6 +57,31 @@ async function embedImages(content, dir) {
     if (dataUrl) result = result.replaceAll(m[0], `![${m[1]}](${dataUrl})`)
   }
   return result
+}
+
+async function renderMermaidInHtml(html) {
+  const wrapper = document.createElement('div')
+  wrapper.innerHTML = html
+
+  const diagrams = Array.from(wrapper.querySelectorAll('.dp-mermaid[data-mermaid-source]'))
+  if (!diagrams.length) return html
+
+  const mermaid = await getExportMermaid()
+
+  await Promise.all(diagrams.map(async (diagram, index) => {
+    const source = decodeURIComponent(diagram.getAttribute('data-mermaid-source') || '')
+    if (!source.trim()) return
+    try {
+      const { svg } = await mermaid.render(`export-mermaid-${Date.now()}-${index}`, source)
+      diagram.innerHTML = svg
+      diagram.classList.remove('is-error')
+      diagram.classList.add('is-rendered')
+    } catch {
+      diagram.classList.add('is-error')
+    }
+  }))
+
+  return wrapper.innerHTML
 }
 
 const EXPORT_CSS = `
@@ -74,6 +120,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR
 .dp-link { color: #0f4f8a; text-decoration: none; border-bottom: 1px solid #7BB8EE; }
 .dp-link:hover { opacity: 0.75; }
 .dp-block { margin-bottom: 14px; }
+.dp-mermaid-block { overflow-x: auto; }
+.dp-mermaid { min-height: 48px; padding: 14px; border: 1px solid #e4e2da; border-radius: 6px; background: #fff; }
+.dp-mermaid.is-rendered { text-align: center; }
+.dp-mermaid svg { max-width: 100%; height: auto; }
+.dp-mermaid-error { margin-bottom: 8px; color: #b42318; font-size: 12px; font-weight: 600; }
 .dp-tbl { width: 100%; font-size: 12px; border-collapse: collapse; background: #fff; border: 1px solid #e4e2da; border-radius: 6px; overflow: hidden; }
 .dp-tbl th { font-size: 11px; font-weight: 600; color: #a09e98; text-align: left; padding: 6px 10px; background: #f2f1ed; border-bottom: 1px solid #e4e2da; white-space: nowrap; }
 .dp-tbl td { padding: 7px 10px; border-bottom: 1px solid #e4e2da; color: #1a1a18; vertical-align: top; line-height: 1.5; }
@@ -89,7 +140,7 @@ export async function exportHtml({ content, title, headings, filePath }) {
   const processedContent = await embedImages(content, dir)
 
   // Render markdown to HTML
-  const bodyHtml = mdBlock(processedContent)
+  const bodyHtml = await renderMermaidInHtml(mdBlock(processedContent))
 
   // Build TOC
   const tocHtml = headings.map((h, i) => {
