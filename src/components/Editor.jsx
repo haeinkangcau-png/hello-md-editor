@@ -21,7 +21,7 @@ import SearchBar from './SearchBar'
 import { normalizeHtmlTables } from '../utils/mdRenderer'
 import { SearchHighlight, searchPluginKey } from '../utils/searchExtension'
 import { DateHighlight } from '../utils/dateHighlight'
-import { saveImage, isWeb, readImageAsBlob, openScheduleWindow, openPath, IMG_BASE } from '../api'
+import { saveImage, isWeb, readImageAsBlob, openScheduleWindow, openPath, openExternal, IMG_BASE } from '../api'
 import { PathLink, findPathAtPos, isLocalPath } from '../utils/pathLink'
 import LinkActionPopup from './LinkActionPopup'
 import ImageLightbox from './ImageLightbox'
@@ -1344,7 +1344,7 @@ const Editor = forwardRef(function Editor(
               const r = await openPath(lp.value)
               if (r && r.success === false) alert(r.error || '경로를 열 수 없습니다.')
             } else {
-              window.open(lp.value, '_blank', 'noopener,noreferrer')
+              openExternal(lp.value)
             }
           }}
           onCopy={async () => {

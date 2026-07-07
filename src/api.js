@@ -121,6 +121,11 @@ function makeElectronAPI() {
     saveDialog:       defaultPath  => api.saveDialog(defaultPath),
     revealInExplorer: path         => api.revealInExplorer(path),
     openPath:         target       => api.openPath(target).catch(e => ({ success: false, error: String(e?.message || e) })),
+    // Tauri (WebView2) needs a native command to open external URLs; real Electron
+    // opens them fine via window.open→setWindowOpenHandler, so fall back to that.
+    openExternal:     url          => (api.openExternal
+      ? api.openExternal(url).catch(e => ({ success: false, error: String(e?.message || e) }))
+      : window.open(url, '_blank', 'noopener,noreferrer')),
     createFolder:     dirPath      => wrap(api.createFolder(dirPath)),
     renameFile:       (o, n)       => wrap(api.renameFile(o, n)),
     saveImage:        (dir, name, b64) => wrap(api.saveImage(dir, name, b64)),
@@ -185,6 +190,9 @@ function makeWebAPI() {
 
     // 웹 환경에서는 보안상 로컬 경로를 열 수 없다.
     openPath: async () => ({ success: false, error: '웹 환경에서는 로컬 폴더를 열 수 없습니다' }),
+
+    // 외부 URL은 새 탭으로 (브라우저 기본 동작).
+    openExternal: (url) => window.open(url, '_blank', 'noopener,noreferrer'),
 
     saveDialog: async (currentPath) => {
       try {
@@ -304,6 +312,7 @@ export const openFolder       = impl.openFolder
 export const saveDialog       = impl.saveDialog
 export const revealInExplorer = impl.revealInExplorer
 export const openPath         = impl.openPath
+export const openExternal     = impl.openExternal
 export const createFolder     = impl.createFolder
 export const renameFile       = impl.renameFile
 export const saveImage        = impl.saveImage

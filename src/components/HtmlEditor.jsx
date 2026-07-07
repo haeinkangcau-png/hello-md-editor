@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react'
-import { openPath, IMG_BASE } from '../api'
+import { openPath, IMG_BASE, readFile } from '../api'
 
 const HTML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;' }
 const escHtml = (s) => s.replace(/[&<>]/g, (c) => HTML_ESC[c])
@@ -534,16 +534,33 @@ const HtmlEditor = forwardRef(function HtmlEditor({ initialContent, filePath, on
     window.addEventListener('mouseup', onUp)
   }, [])
 
-  // 미리보기 새로고침 — 편집 중 내용을 커밋하고 "최신 소스"로 즉시 반영 + 강제 재파싱
-  // (디바운스된 previewSrc가 아니라 rawContentRef의 최신값을 사용해야 실제로 갱신됨)
-  const refreshPreview = useCallback(() => {
+  // 미리보기 새로고침 — 디스크에서 파일을 다시 읽어 외부 변경(다른 편집기·생성 스크립트 등)을
+  // 반영한다. 디스크 내용이 같거나 경로가 없으면(untitled) 메모리 소스로 제자리 재렌더(스크립트 재실행).
+  const refreshPreview = useCallback(async () => {
     // 편집 중이던 span이 있으면 커밋(blur → commitSpan)
     const ae = document.activeElement
     if (ae && typeof ae.blur === 'function' && ae !== document.body) ae.blur()
     clearTimeout(debounceRef.current)
-    // 최신 소스를 미리보기에 반영(변경됐으면 React가 리로드)
+
+    // 1) 디스크에서 최신 내용 재읽기 → 다르면 반영(React가 iframe을 리로드)
+    if (filePath) {
+      try {
+        const { content } = await readFile(filePath)
+        if (content !== rawContentRef.current) {
+          pushUndo(rawContentRef.current) // 진행 중 편집을 덮어썼어도 Ctrl+Z로 복구 가능
+          rawContentRef.current = content
+          setRawTextarea(content)
+          onContentChange(content, 0)
+          onHeadingsChange?.(extractHeadings(content))
+          setHit(null)
+          setPreviewSrc(content) // srcDoc 변경 → iframe 자연 리로드
+          return
+        }
+      } catch { /* 읽기 실패 시 아래 제자리 재렌더로 폴백 */ }
+    }
+
+    // 2) 내용 동일(또는 경로 없음): 시각적으로 재로드되도록 srcdoc 재설정(스크립트 재실행)
     setPreviewSrc(rawContentRef.current)
-    // 내용이 동일해도 시각적으로 재로드되도록 srcdoc 재설정(React 커밋 이후)
     const f = htmlView === 'edit' ? rawPreviewRef.current : viewerIframeRef.current
     if (!f) return
     requestAnimationFrame(() => {
@@ -552,7 +569,7 @@ const HtmlEditor = forwardRef(function HtmlEditor({ initialContent, filePath, on
       f.removeAttribute('srcdoc')
       requestAnimationFrame(() => { f.setAttribute('srcdoc', cur) })
     })
-  }, [htmlView])
+  }, [htmlView, filePath, onContentChange, onHeadingsChange, pushUndo])
 
   // F5 → 미리보기 새로고침(기본 페이지 리로드는 막음)
   useEffect(() => {
