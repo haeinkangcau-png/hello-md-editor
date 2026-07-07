@@ -5,6 +5,7 @@ import React, {
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Extension } from '@tiptap/core'
+import CodeBlock from '@tiptap/extension-code-block'
 import { EditorState } from '@tiptap/pm/state'
 import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
@@ -20,10 +21,114 @@ import SearchBar from './SearchBar'
 import { normalizeHtmlTables } from '../utils/mdRenderer'
 import { SearchHighlight, searchPluginKey } from '../utils/searchExtension'
 import { DateHighlight } from '../utils/dateHighlight'
-import { saveImage, isWeb, readImageAsBlob, openScheduleWindow, openPath } from '../api'
+import { saveImage, isWeb, readImageAsBlob, openScheduleWindow, openPath, IMG_BASE } from '../api'
 import { PathLink, findPathAtPos, isLocalPath } from '../utils/pathLink'
 import LinkActionPopup from './LinkActionPopup'
 import ImageLightbox from './ImageLightbox'
+
+let mermaidEditorInstance = null
+let mermaidEditorInitialized = false
+
+async function getEditorMermaid() {
+  if (!mermaidEditorInstance) {
+    const module = await import('mermaid')
+    mermaidEditorInstance = module.default || module
+  }
+
+  if (!mermaidEditorInitialized) {
+    mermaidEditorInstance.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: 'default',
+    })
+    mermaidEditorInitialized = true
+  }
+
+  return mermaidEditorInstance
+}
+
+const MermaidCodeBlock = CodeBlock.extend({
+  addNodeView() {
+    return ({ node }) => {
+      let currentNode = node
+      let renderToken = 0
+
+      const dom = document.createElement('div')
+      dom.className = 'editor-codeblock-node'
+
+      const preview = document.createElement('div')
+      preview.className = 'editor-mermaid-preview'
+      preview.contentEditable = 'false'
+
+      const pre = document.createElement('pre')
+      const code = document.createElement('code')
+      pre.appendChild(code)
+      dom.append(pre)
+
+      const renderMermaid = async () => {
+        const language = (currentNode.attrs.language || '').toLowerCase()
+        const isMermaid = language === 'mermaid'
+
+        code.className = currentNode.attrs.language
+          ? `${this.options.languageClassPrefix}${currentNode.attrs.language}`
+          : ''
+        dom.classList.toggle('is-mermaid', isMermaid)
+
+        if (!isMermaid) {
+          preview.remove()
+          pre.style.display = ''
+          return
+        }
+
+        if (!preview.parentNode) dom.insertBefore(preview, pre)
+        pre.style.display = 'none'
+
+        const source = currentNode.textContent.trim()
+        const token = ++renderToken
+        preview.classList.add('is-rendering')
+        preview.classList.remove('is-error')
+        preview.innerHTML = ''
+
+        if (!source) return
+
+        try {
+          const mermaid = await getEditorMermaid()
+          const { svg, bindFunctions } = await mermaid.render(
+            `editor-mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            source
+          )
+          if (token !== renderToken) return
+          preview.innerHTML = svg
+          bindFunctions?.(preview)
+          preview.classList.remove('is-rendering', 'is-error')
+        } catch {
+          if (token !== renderToken) return
+          preview.classList.remove('is-rendering')
+          preview.classList.add('is-error')
+          preview.textContent = currentNode.textContent
+          pre.style.display = ''
+        }
+      }
+
+      renderMermaid()
+
+      return {
+        dom,
+        contentDOM: code,
+        update: updatedNode => {
+          if (updatedNode.type.name !== currentNode.type.name) return false
+          currentNode = updatedNode
+          renderMermaid()
+          return true
+        },
+        ignoreMutation: mutation => (
+          mutation.target === preview ||
+          preview.contains(mutation.target)
+        ),
+      }
+    }
+  },
+})
 
 // ── 날짜 유틸 ────────────────────────────────────────────────
 function fmtDate(d) {
@@ -230,7 +335,7 @@ const Editor = forwardRef(function Editor(
     const dir = fp.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
     return md.replace(
       /!\[([^\]]*)\]\(\.\//g,
-      (match, alt) => `![${alt}](local-image://img/${dir}/`
+      (match, alt) => `![${alt}](${IMG_BASE}${dir}/`
     )
   }, [])
 
@@ -271,9 +376,11 @@ const Editor = forwardRef(function Editor(
     const fp = currentFilePathRef.current
     if (!fp) return md
     const dir = fp.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
-    const escaped = dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const escaped = reEsc(dir)
+    const escBase = reEsc(IMG_BASE)
     return md.replace(
-      new RegExp(`!\\[([^\\]]*)\\]\\(local-image://img/${escaped}/`, 'g'),
+      new RegExp(`!\\[([^\\]]*)\\]\\(${escBase}${escaped}/`, 'g'),
       (match, alt) => `![${alt}](./`
     )
   }, [])
@@ -318,7 +425,7 @@ const Editor = forwardRef(function Editor(
               displaySrc = relPath
             }
           } else {
-            displaySrc = `local-image://img/${assetsDir}/${imgName}`
+            displaySrc = `${IMG_BASE}${assetsDir}/${imgName}`
           }
           editorRef2.current.chain().focus().setImage({ src: displaySrc, alt: 'image' }).run()
         } else {
@@ -340,7 +447,8 @@ const Editor = forwardRef(function Editor(
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ codeBlock: { languageClassPrefix: 'language-' } }),
+      StarterKit.configure({ codeBlock: false }),
+      MermaidCodeBlock.configure({ languageClassPrefix: 'language-' }),
       Image.configure({ inline: false, allowBase64: false }),
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
       Table.configure({ resizable: true, HTMLAttributes: { class: 'md-table' } }),

@@ -1,3 +1,4 @@
+import './tauri-bridge'   // must run before api.js reads window.electronAPI
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'

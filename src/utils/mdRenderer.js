@@ -12,6 +12,23 @@ export function makeHeadingId(text) {
   return `hd-${slug || 'heading'}`
 }
 
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/"/g, '&quot;')
+}
+
+function renderMermaidBlock(code) {
+  const source = code.trim()
+  const encodedSource = encodeURIComponent(source)
+  return `<div class="dp-block dp-mermaid-block"><div class="dp-mermaid" data-mermaid-source="${encodedSource}"><pre class="dp-codeblock"><code class="language-mermaid">${escapeHtml(source)}</code></pre></div></div>`
+}
+
 export function mdInline(s) {
   if (!s) return ''
   return s
@@ -154,9 +171,12 @@ export function mdBlock(md, linkReg) {
       let code = ''; i++
       while (i < lines.length && !/^```\s*$/.test(lines[i].trim())) { code += lines[i] + '\n'; i++ }
       if (i < lines.length) i++
-      html += `<pre class="dp-codeblock"><code${lang ? ` class="language-${lang}"` : ''}>${
-        code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      }</code></pre>`
+      const langKey = lang.toLowerCase().split(/\s+/)[0]
+      if (langKey === 'mermaid') {
+        html += renderMermaidBlock(code)
+      } else {
+        html += `<pre class="dp-codeblock"><code${lang ? ` class="language-${escapeAttr(lang)}"` : ''}>${escapeHtml(code)}</code></pre>`
+      }
       continue
     }
 

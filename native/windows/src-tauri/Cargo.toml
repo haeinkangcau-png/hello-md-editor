@@ -1,0 +1,32 @@
+[package]
+name = "hi-md-editor"
+version = "1.7.1"
+description = "Markdown viewer and editor"
+authors = ["neurophet"]
+edition = "2021"
+rust-version = "1.77"
+
+# The library the desktop binary links against.
+[lib]
+name = "hi_md_editor_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+rfd = "0.15"
+urlencoding = "2"
+
+[profile.release]
+# Optimize for a small, low-resource binary — the whole point of this port.
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

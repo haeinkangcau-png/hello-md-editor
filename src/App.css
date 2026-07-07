@@ -1026,6 +1026,30 @@ kbd {
 .dp-block { margin-bottom: 14px; }
 .dp-blabel { font-size: 10px; font-weight: 600; color: #a09e98; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
 .dp-blabel::after { content: ''; flex: 1; height: 1px; background: #e4e2da; }
+.dp-mermaid-block { overflow-x: auto; }
+.dp-mermaid {
+  min-height: 48px;
+  padding: 14px;
+  border: 1px solid #e4e2da;
+  border-radius: 6px;
+  background: #fff;
+}
+.dp-mermaid.is-rendering {
+  color: #a09e98;
+}
+.dp-mermaid.is-rendered {
+  text-align: center;
+}
+.dp-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+.dp-mermaid-error {
+  margin-bottom: 8px;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 600;
+}
 .dp-tbl { width: 100%; font-size: 12px; border-collapse: collapse; background: #fff; border: 1px solid #e4e2da; border-radius: 6px; overflow: hidden; }
 .dp-tbl th { font-size: 11px; font-weight: 600; color: #a09e98; text-align: left; padding: 6px 10px; background: #f2f1ed; border-bottom: 1px solid #e4e2da; white-space: nowrap; }
 .dp-tbl td { padding: 7px 10px; border-bottom: 1px solid #e4e2da; color: #1a1a18; vertical-align: top; line-height: 1.5; }
@@ -1679,6 +1703,29 @@ kbd {
   padding: 0;
   font-size: 0.875em;
   color: inherit;
+}
+.ProseMirror .editor-codeblock-node.is-mermaid {
+  margin: 1em 0;
+}
+.ProseMirror .editor-mermaid-preview {
+  min-height: 48px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fff;
+  overflow-x: auto;
+  text-align: center;
+}
+.ProseMirror .editor-mermaid-preview svg {
+  max-width: 100%;
+  height: auto;
+}
+.ProseMirror .editor-mermaid-preview.is-error {
+  text-align: left;
+  white-space: pre;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  color: #b42318;
 }
 
 /* Blockquote */

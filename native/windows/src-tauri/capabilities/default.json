@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Core permissions for all app windows. All file operations go through app-defined commands, which do not require capability entries.",
+  "windows": ["*"],
+  "permissions": ["core:default"]
+}

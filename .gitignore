@@ -5,3 +5,7 @@ release/
 *.log
 .DS_Store
 Thumbs.db
+
+# Windows native (Tauri) build artifacts
+native/windows/src-tauri/target/
+native/windows/src-tauri/gen/
