@@ -30,6 +30,9 @@ if (isTauri && !window.electronAPI) {
     saveDialog:       (defaultPath)     => invoke('save_dialog', { defaultPath }),
     revealInExplorer: (filePath)        => invoke('reveal_in_explorer', { filePath }),
     openPath:         (target)          => invoke('open_path', { target }),
+    // WebView2 ignores window.open() for external URLs, so route them to a
+    // native command that launches the default browser (see open_external).
+    openExternal:     (url)             => invoke('open_external', { url }),
 
     // ── Windows ──
     openNewWindow:      ()                    => invoke('open_new_window'),

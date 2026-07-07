@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useRef, useCallback, useState } from 'react'
 import { mdBlock } from '../utils/mdRenderer'
-import { isWeb, readImageAsBlob, openPath } from '../api'
+import { isWeb, readImageAsBlob, openPath, openExternal } from '../api'
 import { isLocalPath } from '../utils/pathLink'
 import LinkActionPopup from './LinkActionPopup'
 import ImageLightbox from './ImageLightbox'
@@ -155,7 +155,7 @@ export default function MarkdownPreview({ content, scrollRef, linkReg, sectionTi
               const r = await openPath(lp.value)
               if (r && r.success === false) alert(r.error || '경로를 열 수 없습니다.')
             } else {
-              window.open(lp.value, '_blank', 'noopener,noreferrer')
+              openExternal(lp.value)
             }
           }}
           onCopy={async () => {

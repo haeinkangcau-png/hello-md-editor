@@ -434,6 +434,34 @@ fn open_path(target: String) -> Result<Value, String> {
     }
 }
 
+// Open an external http(s) URL in the default browser. Unlike `open_path` this
+// MUST NOT rewrite '/'→'\' — that corrupts URLs. Electron opened these via
+// window.open→setWindowOpenHandler→shell.openExternal; WebView2 ignores
+// window.open, so the frontend routes URL opens through this command instead.
+#[tauri::command]
+fn open_external(url: String) -> Result<Value, String> {
+    let u = url.trim();
+    if u.is_empty() {
+        return Ok(json!({ "success": false, "error": "empty url" }));
+    }
+    #[cfg(target_os = "windows")]
+    {
+        match std::process::Command::new("cmd")
+            .args(["/C", "start", "", u])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+        {
+            Ok(_) => Ok(json!({ "success": true })),
+            Err(e) => Ok(json!({ "success": false, "error": e.to_string() })),
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = u;
+        Ok(json!({ "success": false, "error": "unsupported platform" }))
+    }
+}
+
 #[tauri::command]
 fn get_open_file_path(app: AppHandle) -> Option<String> {
     app.state::<AppState>().pending_open.lock().unwrap().clone()
@@ -571,6 +599,7 @@ pub fn run() {
             save_dialog,
             reveal_in_explorer,
             open_path,
+            open_external,
             create_folder,
             rename_file,
             save_image,
