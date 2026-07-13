@@ -130,6 +130,29 @@ const MermaidCodeBlock = CodeBlock.extend({
   },
 })
 
+// Tab / Shift-Tab으로 리스트 항목 depth 조절.
+// StarterKit ListItem의 기본 Tab 바인딩이 이 버전 조합에서 발화하지 않아
+// (Tab이 에디터 밖 툴바로 포커스가 새어나감) 명시적으로 다시 바인딩한다.
+// 리스트 안: sink/lift 수행하고 Tab을 삼켜 포커스 이탈을 막는다.
+// 리스트 밖: false를 반환해 표(셀 이동) 등 다른 핸들러/기본 동작에 양보한다.
+const ListTabKeymap = Extension.create({
+  name: 'listTabKeymap',
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => {
+        if (!this.editor.isActive('listItem')) return false
+        this.editor.chain().focus().sinkListItem('listItem').run()
+        return true // 첫 항목이라 sink 불가여도 Tab을 삼켜 포커스가 새지 않게 한다
+      },
+      'Shift-Tab': () => {
+        if (!this.editor.isActive('listItem')) return false
+        this.editor.chain().focus().liftListItem('listItem').run()
+        return true
+      },
+    }
+  },
+})
+
 // ── 날짜 유틸 ────────────────────────────────────────────────
 function fmtDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
@@ -448,6 +471,7 @@ const Editor = forwardRef(function Editor(
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ codeBlock: false }),
+      ListTabKeymap,
       MermaidCodeBlock.configure({ languageClassPrefix: 'language-' }),
       Image.configure({ inline: false, allowBase64: false }),
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
