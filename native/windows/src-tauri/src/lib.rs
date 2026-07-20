@@ -464,7 +464,9 @@ fn open_external(url: String) -> Result<Value, String> {
 
 #[tauri::command]
 fn get_open_file_path(app: AppHandle) -> Option<String> {
-    app.state::<AppState>().pending_open.lock().unwrap().clone()
+    // take() (not clone()): 한 번 소비하면 비운다. 프론트엔드가 이 값을 다시
+    // 폴링해도 원래 파일로 되돌아가지 않도록 하는 방어 장치.
+    app.state::<AppState>().pending_open.lock().unwrap().take()
 }
 
 // ── Windows ────────────────────────────────────────────────

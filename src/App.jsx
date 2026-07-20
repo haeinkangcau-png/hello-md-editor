@@ -545,19 +545,26 @@ export default function App() {
   }, [isHtml, showPreview])
 
   // ── Open file passed via command-line / file association ──
+  // handleFileSelect의 최신 버전을 ref로 참조한다. 이렇게 하지 않고
+  // handleFileSelect를 의존성에 넣으면, saveStatus 변화로 이 콜백 identity가
+  // 바뀔 때마다 아래 이펙트가 재실행되어 getOpenFilePath()를 다시 호출하고,
+  // (Tauri/Electron이 최초 open 경로를 계속 반환하므로) 방금 전환한 파일을
+  // 원래 파일로 되돌리는 버그가 생긴다.
+  const handleFileSelectRef = useRef(handleFileSelect)
+  handleFileSelectRef.current = handleFileSelect
   useEffect(() => {
     const api = window.electronAPI
     if (!api) return
     // Poll once for a path that was passed before the renderer loaded
     api.getOpenFilePath().then(filePath => {
-      if (filePath) handleFileSelect({ path: filePath, name: filePath.replace(/\\/g, '/').split('/').pop() })
+      if (filePath) handleFileSelectRef.current({ path: filePath, name: filePath.replace(/\\/g, '/').split('/').pop() })
     })
     // Also handle future open-file events (e.g. already-running instance)
     const removeListener = api.onOpenFile((filePath) => {
-      if (filePath) handleFileSelect({ path: filePath, name: filePath.replace(/\\/g, '/').split('/').pop() })
+      if (filePath) handleFileSelectRef.current({ path: filePath, name: filePath.replace(/\\/g, '/').split('/').pop() })
     })
     return removeListener
-  }, [handleFileSelect])
+  }, []) // 마운트 시 1회만 — 재실행 시 원래 파일로 되돌아가는 문제 방지
 
   // ── Auto-save debounce ─────────────────────────────────────
   useEffect(() => {
