@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>개발 일정</title>
+<title>AQUA AD 개발 일정</title>
 <style>
 :root {
   --bg: #f4f6f9;
@@ -578,6 +578,9 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
     <button class="toggle-btn active" id="btnFit" onclick="setMode('fit')">화면에 맞추기</button>
     <button class="toggle-btn" id="btnScroll" onclick="setMode('scroll')">고정 간격 보기</button>
   </div>
+  <label title="주말(토·일)을 축에서 제외하고, 종료일까지 포함해 그립니다" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text-secondary);margin-right:12px;cursor:pointer;user-select:none">
+    <input type="checkbox" id="excludeWeekends" style="cursor:pointer;width:14px;height:14px"> 주말 제외
+  </label>
   <div class="range-groups" id="rangeToggle">
     <div class="view-toggle">
       <button class="toggle-btn active" data-range="3m" onclick="setRange('3m')">±6주</button>
@@ -688,6 +691,10 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
 </div>
 
 <script>
+// 주말 제외 시각화: 켜면 월~금(영업일)만 축에 반영하고 종료일을 포함해 그린다.
+// (선택은 localStorage에 저장 → 다음에도 유지). 기본값은 꺼짐(달력 기준).
+let EXCLUDE_WEEKENDS = (function(){ try { return localStorage.getItem('sched_excludeWeekends') === '1'; } catch(e){ return false; } })();
+
 // ── 색상 팔레트 (제품별 자동 할당) ──
 const PALETTE = [
   { bg:'#dcebfb', bd:'#2f7fc9', tx:'#13436f' },   // blue
@@ -1010,7 +1017,21 @@ function render(mode) {
     inner.style.width = '100%';
   }
 
-  function p(date) { return ((new Date(date) - CHART_START) / TOTAL_MS * trackW); }
+  // 위치 계산. 주말 제외 모드면 영업일(월~금) 기준으로 매핑(주말=폭 0),
+  // 아니면 기존 달력 시간 선형. CHART_START는 월요일로 스냅되어 주 경계와 일치.
+  function bizDaysBetween(from, to) {
+    let a = new Date(from), b = new Date(to);
+    a.setHours(0,0,0,0); b.setHours(0,0,0,0);
+    if (b < a) return -bizDaysBetween(to, from);
+    let n = 0; const c = new Date(a);
+    while (c < b) { const g = c.getDay(); if (g !== 0 && g !== 6) n++; c.setDate(c.getDate()+1); }
+    return n;
+  }
+  const UNIT = weekPx / 5; // 영업일 1일 폭 (한 주 = 5영업일 = weekPx)
+  function p(date) {
+    if (!EXCLUDE_WEEKENDS) return ((new Date(date) - CHART_START) / TOTAL_MS * trackW);
+    return bizDaysBetween(CHART_START, date) * UNIT;
+  }
 
   // majorDates: 각 월 첫 주
   const majorSet = new Set();
@@ -1083,7 +1104,7 @@ function render(mode) {
     let barsHTML = '';
     rows.forEach(item => {
       if (!item.start || !item.end) return;
-      const left = p(item.start), w = p(item.end) - left;
+      const left = p(item.start); let w = p(item.end) - left; if (EXCLUDE_WEEKENDS && item.start !== item.end) w += UNIT;
       if (w <= 0) return;
       const col = item.color;
       if (item.barType === 'cert') {
@@ -1115,7 +1136,7 @@ function render(mode) {
 
     const tip = item.main + (item.sub ? ' ('+item.sub+')' : '');
     if (item.barType === 'normal' && item.start && item.end) {
-      const left = p(item.start), w = p(item.end) - left;
+      const left = p(item.start); let w = p(item.end) - left; if (EXCLUDE_WEEKENDS && item.start !== item.end) w += UNIT;
       if (w < 1) {
         // 단일 날짜 이벤트 → 마일스톤 다이아몬드 + 라벨
         trackHTML += '<div class="event-marker" style="left:'+left+'px" title="'+tip+'"><div class="event-diamond" style="background:'+col.bd+'"></div><span class="event-label" style="color:'+col.tx+'">'+item.main+'</span></div>';
@@ -1124,14 +1145,14 @@ function render(mode) {
       }
     }
     if (item.barType === 'tbd' && item.start && item.end) {
-      const left = p(item.start), w = p(item.end) - left;
+      const left = p(item.start); let w = p(item.end) - left; if (EXCLUDE_WEEKENDS && item.start !== item.end) w += UNIT;
       trackHTML += '<div class="bar-tbd-wrap chart-bar"'+dattr+' title="'+tip+'" style="left:'+left+'px;width:'+w+'px">'
         + '<div class="bar-tbd" style="border-color:'+col.bd+';background:'+col.bg+'88;color:'+col.tx+'">'+item.main+'</div>'
         + '<div class="bar-tbd-fade"></div></div>';
       trackHTML += '<div class="tbd-dots" style="left:'+(left+w+4)+'px">···</div>';
     }
     if (item.barType === 'cert' && item.start && item.end) {
-      const left = p(item.start), w = p(item.end) - left;
+      const left = p(item.start); let w = p(item.end) - left; if (EXCLUDE_WEEKENDS && item.start !== item.end) w += UNIT;
       trackHTML += '<div class="bar-cert chart-bar"'+dattr+' title="'+tip+'" style="left:'+left+'px;width:'+w+'px;border:1.5px dashed '+CERT_STYLE.bd+';background:'+CERT_STYLE.bg+';color:'+CERT_STYLE.tx+'">'+item.main+'</div>';
     }
     if (item.msSubmit) {
@@ -1156,7 +1177,7 @@ function render(mode) {
 
     group.bars.forEach(item => {
       if (!item.start || !item.end) return;
-      const left = p(item.start), w = p(item.end) - left;
+      const left = p(item.start); let w = p(item.end) - left; if (EXCLUDE_WEEKENDS && item.start !== item.end) w += UNIT;
       const tip = item.main + (item.sub ? ' ('+item.sub+')' : '');
       const gattr = ' data-s="'+item.start+'" data-e="'+item.end+'"';
       if (item.barType === 'normal') {
@@ -1373,20 +1394,15 @@ function exportHTML() {
   const actions = clone.querySelector('.toolbar-actions');
   if (actions) actions.remove();
 
-  // 초기 렌더 + BroadcastChannel 동기화 블록을 standalone 초기화로 교체.
-  // ⚠ 정확한 마커(전체 문구)로 매칭해야 함: exportHTML() 소스 안에도 "초기 렌더"가
-  //    들어 있어 prefix만으로 매칭하면 이 함수 내부를 잘라 스크립트가 깨진다.
+  // BroadcastChannel 스크립트 제거하고 즉시 render 호출로 대체
   const scripts = clone.querySelectorAll('script');
   scripts.forEach(s => {
+    // BroadcastChannel 관련 코드 제거
     if (s.textContent.includes('BroadcastChannel')) {
-      s.textContent = s.textContent.replace(/\/\/ ── 초기 렌더 \(DEFAULT_MD placeholder\)[\s\S]*$/, `
-// ── standalone 초기화 ──
-(function () {
-  var __ta = document.getElementById('mdInput');
-  if (__ta) __ta.value = ${JSON.stringify(md)};
-  render('fit');
-  window.addEventListener('resize', function () { if (currentMode === 'fit') render('fit'); });
-})();
+      s.textContent = s.textContent.replace(/\/\/ ── 초기 렌더[\s\S]*$/, `
+// ── 초기 렌더 (standalone) ──
+render('fit');
+window.addEventListener('resize', () => { if (currentMode === 'fit') render('fit'); });
 `);
     }
   });
@@ -1419,29 +1435,62 @@ function toggleEditor() {
 }
 
 // ── 초기화 ──
-const DEFAULT_MD = `# 제품 A [예시]
+const DEFAULT_MD = `# AD Plus 3.0 [FDA]
 
 ## 개발
-- 1.0.0 개발 | 2026-01-05 ~ 2026-03-27 | ◆ M1
-- 1.0.1 개선 | 2026-04-01 ~ 2026-05-15 | tbd
+- 3.0.0 RUO 개발 | 2024-12-19 ~ 2025-07-25 | ◆ M3
+- 3.0.1 개발 (FDA-PMDA 분기) | 2025-10-01 ~ 2025-11-14 | ◆ SV 완료
+- 3.0.0.2 개발 (엔진 고도화) | 2026-02-02 ~ 2026-05-29 | tbd
 
 ## 인증
-- 인증 심사 | 2026-03-02 ~ 2026-07-31 | cert | ◇ 접수 | ◆ 허가
+- FDA 심사 | 2025-08-08 ~ 2026-01-30 | cert | ◇ FDA 제출 | ◆ FDA 허가
 
-# 제품 B [예시]
+## PMDA
+- PMDA 제출 준비 | 2025-10-01 ~ 2026-03-31 | tbd
+
+# AD Plus 2.0 [MFDS·혁신]
 
 ## 개발
-- 2.0.0 개발 | 2026-02-02 ~ 2026-06-30
-- 2.0.1 개선 | 2026-07-01 ~ 2026-09-30 | ◆ 릴리즈
+- 2.0.0 build 1 (ARIA 보고서) | 2024-09-01 ~ 2024-11-29 | ◆ 검증완료
+- 2.0.0 build 2 (보완 반영) | 2025-01-06 ~ 2025-04-30
+- 2.0.1 (RUO 기능·엔진 개선) | 2025-07-01 ~ 2025-10-14 | ◆ 설치 시작
+- 2.0.1.1 (VoC·엔진 변경) | 2026-01-05 ~ 2026-03-03 | ◆ 릴리즈
+
+## 인증
+- MFDS 심사 | 2024-12-15 ~ 2025-05-13 | cert | ◇ 접수 | ◆ 허가
+- 혁신의료기술 지정 | 2025-06-01 ~ 2025-09-08 | cert | ◆ 지정 완료
+
+# AD Plus 3.1 [FDA]
+
+## 개발
+- MV 개발 | 2026-06-01 ~ 2026-06-15 | ◆ MV 완료
 
 ## 문서
-- 문서 작성 | 2026-06-01 ~ 2026-07-15 | ◆ 문서 완료
+- DHF 작성 | 2026-06-15 ~ 2026-07-13 | ◆ DHF 완료
+- 기술문서 작성 | 2026-07-13 ~ 2026-08-10 | ◆ FDA 제출
 
 ## 인증
-- 변경 인증 | 2026-08-03 ~ 2026-11-30 | cert | ◇ 접수 | ◆ 완료
+- FDA 변경인증 | 2026-08-10 ~ 2027-02-08 | cert | ◇ FDA 제출
+
+# AD 2.0 [MFDS]
+
+## 개발
+- 개발 | 2026-06-15 ~ 2026-07-13 | ◆ 개발 완료
+
+## 사용적합성 평가
+- 리크루팅 | 2026-06-15 ~ 2026-06-29
+- 평가 수행 | 2026-07-13 ~ 2026-08-03
+- 문서 작성 | 2026-08-03 ~ 2026-08-10 | ◆ 평가 문서 완료
+
+## 문서
+- 기술문서 작성 | 2026-07-13 ~ 2026-08-10 | tbd
+- 제출문서 작성 (RA) | 2026-08-03 ~ 2026-08-31 | tbd | ◆ 문서 완료
+
+## 인증
+- MFDS 변경인증 | 2026-08-31 ~ 2026-11-30 | cert | ◇ 접수 | ◆ 인증 완료
 
 ## 출시 준비
-- 출시 준비 | 2026-12-01 ~ 2027-01-29 | tbd`;
+- MV 및 문서 준비 | 2026-11-30 ~ 2027-01-25 | tbd`;
 
 const mdInput = document.getElementById('mdInput');
 // DEFAULT_MD는 BroadcastChannel 수신 전 fallback으로만 사용
@@ -1639,7 +1688,6 @@ calGrid.addEventListener('click', (e) => {
   closeCal();
   clearTimeout(debounceTimer);
   render(currentMode);
-  if (_schedCh) _schedCh.postMessage({ type: 'schedule-md-update', content: document.getElementById('mdInput').value });
 });
 
 document.getElementById('calPrev').addEventListener('click', () => {
@@ -1716,10 +1764,7 @@ document.getElementById('calDurApply').addEventListener('click', () => {
   calEndValue.textContent = calCtx.endDate;
   closeCal();
   clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => {
-    render(currentMode);
-    if (_schedCh) _schedCh.postMessage({ type: 'schedule-md-update', content: document.getElementById('mdInput').value });
-  }, 150);
+  debounceTimer = setTimeout(() => render(currentMode), 150);
 });
 
 // ── 에디터: 커서 위치 날짜 감지 ──
@@ -1837,20 +1882,8 @@ document.getElementById('chartInner').addEventListener('click', (e) => {
 
   calCtx = { source: 'chart', startDate, endDate, itemName };
 
-  if (_schedCh && itemName) _schedCh.postMessage({ type: 'schedule-focus-item', itemName });
-
   const dateStr = calDateMode === 'start' ? startDate : endDate;
   openCal(e.clientX, e.clientY + 12, dateStr, true);
-});
-
-// ── 라벨 클릭 → 에디터 포커스 ──
-document.getElementById('chartInner').addEventListener('click', (e) => {
-  const labelCell = e.target.closest('.label-cell');
-  if (!labelCell || e.target.closest('.chart-bar')) return;
-  const nameEl = labelCell.querySelector('.label-main') || labelCell.querySelector('.product-title') || labelCell.querySelector('.section-title');
-  if (!nameEl) return;
-  const itemName = nameEl.textContent.replace(/[▼▶]/g, '').trim();
-  if (itemName && _schedCh) _schedCh.postMessage({ type: 'schedule-focus-item', itemName });
 });
 
 // ── 밖 클릭 시 닫기 ──
@@ -1882,6 +1915,19 @@ if (_schedCh) {
   // 에디터에 초기 콘텐츠 요청 (약간 딜레이로 채널 안정화)
   setTimeout(() => _schedCh.postMessage({ type: 'md-request' }), 200);
 }
+</script>
+<script>
+// 주말 제외 체크박스: 저장된 선택 복원 + 변경 시 저장하고 리렌더
+(function(){
+  var cb = document.getElementById('excludeWeekends');
+  if (!cb) return;
+  cb.checked = EXCLUDE_WEEKENDS;
+  cb.addEventListener('change', function(e){
+    EXCLUDE_WEEKENDS = e.target.checked;
+    try { localStorage.setItem('sched_excludeWeekends', EXCLUDE_WEEKENDS ? '1' : '0'); } catch(err){}
+    if (typeof render === 'function') render(currentMode);
+  });
+})();
 </script>
 </body>
 </html>
