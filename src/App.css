@@ -1463,7 +1463,8 @@ kbd {
 .editor-cal-day.today:hover { background: #b01c28; }
 .editor-cal-day.selected { background: var(--color-text); color: #fff; font-weight: 600; }
 .editor-cal-day.selected:hover { background: #333; }
-.editor-cal-day.mon { color: var(--color-accent); }
+.editor-cal-day.sun { color: #cf222e; }
+.editor-cal-dow span.sun { color: #cf222e; }
 
 /* ── Raw markdown editor ──────────────────────────────────── */
 .raw-scroll {

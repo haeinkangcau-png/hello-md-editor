@@ -1869,10 +1869,8 @@ document.getElementById('chartInner').addEventListener('click', (e) => {
   const endDate   = bar.dataset.e;
   if (!startDate || !endDate) return;
 
-  // 클릭 위치가 바의 왼쪽 절반이면 시작, 오른쪽이면 끝
-  const rect = bar.getBoundingClientRect();
-  const clickRatio = (e.clientX - rect.left) / rect.width;
-  calDateMode = clickRatio < 0.5 ? 'start' : 'end';
+  // 블록 선택 시 항상 '시작'에 focus (클릭 위치와 무관)
+  calDateMode = 'start';
 
   updateDateItemActive();
 
