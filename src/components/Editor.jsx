@@ -196,7 +196,7 @@ function DatePickerPopup({ x, y, dateStr, onSelect, onClose }) {
   }
   for (let d = 1; d <= lastDay; d++) {
     const dt = new Date(year, month, d)
-    days.push({ day: d, other: false, date: fmtDate(dt), isToday: dt.getTime() === today.getTime(), isSel: fmtDate(dt) === selected, isMon: dt.getDay() === 1 })
+    days.push({ day: d, other: false, date: fmtDate(dt), isToday: dt.getTime() === today.getTime(), isSel: fmtDate(dt) === selected, isSun: dt.getDay() === 0 })
   }
   const remain = (7 - (dow + lastDay) % 7) % 7
   for (let d = 1; d <= remain; d++) {
@@ -222,7 +222,7 @@ function DatePickerPopup({ x, y, dateStr, onSelect, onClose }) {
         <button className="editor-cal-nav" onClick={nextMonth}>▶</button>
       </div>
       <div className="editor-cal-dow">
-        {['일','월','화','수','목','금','토'].map(d => <span key={d}>{d}</span>)}
+        {['일','월','화','수','목','금','토'].map((d, i) => <span key={d} className={i === 0 ? 'sun' : ''}>{d}</span>)}
       </div>
       <div className="editor-cal-grid">
         {days.map((d, i) => (
@@ -233,7 +233,7 @@ function DatePickerPopup({ x, y, dateStr, onSelect, onClose }) {
               d.other ? 'other' : '',
               d.isToday ? 'today' : '',
               d.isSel ? 'selected' : '',
-              d.isMon && !d.isToday && !d.isSel ? 'mon' : '',
+              d.isSun && !d.isToday && !d.isSel ? 'sun' : '',
             ].filter(Boolean).join(' ')}
             onClick={() => { setSelected(d.date); onSelect(d.date) }}
           >
@@ -814,6 +814,10 @@ const Editor = forwardRef(function Editor(
   // ── Date picker: WYSIWYG mode ─────────────────────────────
   const handleWysiwygDateClick = useCallback((e) => {
     if (!editor) return
+    // 하이라이트된 날짜 칩을 "직접" 클릭했을 때만 달력을 연다.
+    // 날짜가 있는 줄의 빈 영역/끝을 클릭한 경우엔 열지 않고, 열려 있던 달력은 닫는다.
+    // (기존엔 커서 주변 ±12자에서 날짜를 찾아, 줄 끝 클릭에도 뜨고 공백 클릭 시 따라다녔음)
+    if (!e.target?.closest?.('.date-highlight')) { setCalState(null); return }
     requestAnimationFrame(() => {
       const { $from } = editor.state.selection
       const offset = $from.parentOffset
