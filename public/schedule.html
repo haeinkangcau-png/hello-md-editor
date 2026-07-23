@@ -692,8 +692,8 @@ header p { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
 
 <script>
 // 주말 제외 시각화: 켜면 월~금(영업일)만 축에 반영하고 종료일을 포함해 그린다.
-// (선택은 localStorage에 저장 → 다음에도 유지). 기본값은 꺼짐(달력 기준).
-let EXCLUDE_WEEKENDS = (function(){ try { return localStorage.getItem('sched_excludeWeekends') === '1'; } catch(e){ return false; } })();
+// (선택은 localStorage에 저장 → 다음에도 유지). 기본값은 켜짐(영업일 기준).
+let EXCLUDE_WEEKENDS = (function(){ try { const v = localStorage.getItem('sched_excludeWeekends'); return v === null ? true : v === '1'; } catch(e){ return true; } })();
 
 // ── 색상 팔레트 (제품별 자동 할당) ──
 const PALETTE = [
@@ -1032,6 +1032,8 @@ function render(mode) {
     if (!EXCLUDE_WEEKENDS) return ((new Date(date) - CHART_START) / TOTAL_MS * trackW);
     return bizDaysBetween(CHART_START, date) * UNIT;
   }
+  // 드래그 이동(블록)에서 X→날짜 역매핑에 쓰도록 현재 레이아웃을 전역에 노출.
+  window.__schedLayout = { startMs: +CHART_START, totalMs: TOTAL_MS, trackW: trackW, unit: UNIT, exclude: EXCLUDE_WEEKENDS };
 
   // majorDates: 각 월 첫 주
   const majorSet = new Set();
@@ -1075,9 +1077,17 @@ function render(mode) {
   });
   html += '</div><div style="display:flex">';
   weeks.forEach(w => {
-    const label = (w.getMonth()+1)+'/'+String(w.getDate()).padStart(2,'0');
-    const show = mode === 'scroll' || weekPx >= 28;
-    html += '<div class="week-header" style="width:'+weekPx+'px;border-right:1px solid var(--border-light)">'+(show?label:'')+'</div>';
+    const fmt = (dt) => (dt.getMonth()+1)+'/'+String(dt.getDate()).padStart(2,'0');
+    const start = fmt(w);
+    // 2단계 라벨: 폭이 충분하면 시작일~종료일(주말 제외 시 금요일), 좁으면 시작일만.
+    let label = '';
+    if (weekPx >= 64) {
+      const endD = new Date(w); endD.setDate(endD.getDate() + (EXCLUDE_WEEKENDS ? 4 : 6));
+      label = start + '~' + fmt(endD);
+    } else if (mode === 'scroll' || weekPx >= 28) {
+      label = start;
+    }
+    html += '<div class="week-header" style="width:'+weekPx+'px;border-right:1px solid var(--border-light)">'+label+'</div>';
   });
   html += '</div>'+todayHTML(true)+'</div></div>';
 
@@ -1688,7 +1698,17 @@ calGrid.addEventListener('click', (e) => {
   closeCal();
   clearTimeout(debounceTimer);
   render(currentMode);
+  pushMdBack(); // 편집 결과를 에디터로 되돌려 보내 파일에 반영
 });
+
+// 스케줄 창에서 바뀐 MD를 Hi MD Editor로 전송(→ 에디터가 반영·저장). _schedCh는 하단에서 초기화됨.
+function pushMdBack(){
+  try {
+    if (typeof _schedCh !== 'undefined' && _schedCh) {
+      _schedCh.postMessage({ type: 'schedule-md-update', content: document.getElementById('mdInput').value });
+    }
+  } catch (e) {}
+}
 
 document.getElementById('calPrev').addEventListener('click', () => {
   calMonth--;
@@ -1862,6 +1882,7 @@ mdInput.addEventListener('input', () => handleEditorCursor(true));
 
 // ── 차트: 바 클릭 ──
 document.getElementById('chartInner').addEventListener('click', (e) => {
+  if (window.__suppressBarClick) { window.__suppressBarClick = false; return; } // 드래그 직후 클릭 무시
   const bar = e.target.closest('.chart-bar');
   if (!bar) return;
 
@@ -1883,6 +1904,161 @@ document.getElementById('chartInner').addEventListener('click', (e) => {
   const dateStr = calDateMode === 'start' ? startDate : endDate;
   openCal(e.clientX, e.clientY + 12, dateStr, true);
 });
+
+// ── 차트: 바 드래그 — 가운데=통째 이동, 왼쪽 끝=시작일, 오른쪽 끝=종료일 조절 ──
+(function(){
+  const chartInner = document.getElementById('chartInner');
+  const EDGE = 8; // 양끝 리사이즈 감지 폭(px)
+  let drag = null, moved = false;
+
+  const isoOf = (d) => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  function addBizDays(from, n){
+    const d = new Date(from); let c = 0; const step = n >= 0 ? 1 : -1;
+    while (c < Math.abs(n)) { d.setDate(d.getDate()+step); const g = d.getDay(); if (g !== 0 && g !== 6) c++; }
+    return d;
+  }
+  // X좌표 → 날짜 (p()의 역). 주말 제외 모드면 영업일 기준.
+  function xToDate(x){
+    const L = window.__schedLayout; if (!L) return null;
+    if (!L.exclude) return new Date(L.startMs + (Math.max(0, x) / L.trackW) * L.totalMs);
+    return addBizDays(new Date(L.startMs), Math.round(x / L.unit));
+  }
+  // 바로 위(이전) 항목 블록의 종료일
+  function prevItemEnd(bar){
+    const row = bar.closest('.chart-row'); if (!row) return null;
+    let prev = row.previousElementSibling;
+    while (prev){
+      const b = prev.querySelector('.chart-bar[data-e]');
+      if (b && b.dataset.e) return new Date(b.dataset.e + 'T00:00:00');
+      prev = prev.previousElementSibling;
+    }
+    return null;
+  }
+  // 후보 요일(dows: 1=월,3=수,5=금)과 extra 날짜들 중 date에 가장 가까운 곳으로 스냅
+  function snapDays(date, dows, extras){
+    const base = new Date(date); base.setHours(0,0,0,0);
+    const cands = [];
+    for (let wk = -1; wk <= 1; wk++){
+      const mon = new Date(base);
+      mon.setDate(mon.getDate() - ((mon.getDay()+6)%7) + wk*7); // 해당 주 월요일
+      dows.forEach(dw => { const d = new Date(mon); d.setDate(d.getDate() + ((dw+6)%7)); cands.push(d); });
+    }
+    (extras||[]).forEach(d => { if (d) cands.push(d); });
+    let best = cands[0], bestDiff = Infinity;
+    for (const c of cands){ const diff = Math.abs(c - base); if (diff < bestDiff){ bestDiff = diff; best = c; } }
+    return best;
+  }
+  // MD 라인에서 해당 항목의 시작/끝 날짜를 교체(변하지 않은 쪽은 그대로)
+  function setChartDates(name, oldS, oldE, newS, newE){
+    const ta = document.getElementById('mdInput');
+    const lines = ta.value.split('\n');
+    for (let i = 0; i < lines.length; i++){
+      const ln = lines[i];
+      const hasName = !name || ln.includes(name);
+      if (!hasName || !ln.includes(oldS) || !ln.includes(oldE)) continue;
+      const re = new RegExp(oldS + '(\\s*~\\s*)' + oldE);
+      lines[i] = re.test(ln) ? ln.replace(re, newS + '$1' + newE)
+                             : ln.replace(oldS, newS); // 단일 날짜(이벤트)
+      ta.value = lines.join('\n');
+      return true;
+    }
+    return false;
+  }
+  // 바 위 X좌표가 어느 영역인지: 좁은 바는 통째 이동만
+  function zoneOf(bar, clientX){
+    const r = bar.getBoundingClientRect();
+    if (r.width < 28) return 'move';
+    if (clientX - r.left <= EDGE) return 'start';
+    if (r.right - clientX <= EDGE) return 'end';
+    return 'move';
+  }
+
+  // hover 커서: 양끝이면 ew-resize, 가운데면 grab
+  chartInner.addEventListener('mousemove', (e) => {
+    if (drag) return;
+    const bar = e.target.closest('.chart-bar');
+    if (!bar) return;
+    bar.style.cursor = (zoneOf(bar, e.clientX) === 'move') ? 'grab' : 'ew-resize';
+  });
+
+  chartInner.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const bar = e.target.closest('.chart-bar');
+    if (!bar || !bar.dataset.s || !bar.dataset.e) return;
+    drag = {
+      bar, mode: zoneOf(bar, e.clientX),
+      startX: e.clientX,
+      left0: parseFloat(bar.style.left) || 0,
+      width0: parseFloat(bar.style.width) || bar.getBoundingClientRect().width,
+      s: bar.dataset.s, en: bar.dataset.e,
+      durDays: Math.round((new Date(bar.dataset.e) - new Date(bar.dataset.s)) / 86400000),
+      name: (bar.querySelector('.bar-tbd') || bar).textContent.trim(),
+    };
+    moved = false;
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    if (!moved && Math.abs(dx) < 4) return;
+    moved = true;
+    const b = drag.bar;
+    b.style.opacity = '0.8'; b.style.zIndex = '20';
+    if (drag.mode === 'move') {
+      // CSS translateY(-50%) 세로 정렬 유지한 채 X만 이동
+      b.style.transform = 'translate(' + dx + 'px, -50%)';
+    } else if (drag.mode === 'start') {
+      const nl = Math.min(drag.left0 + dx, drag.left0 + drag.width0 - 12);
+      b.style.left = nl + 'px';
+      b.style.width = (drag.left0 + drag.width0 - nl) + 'px';
+    } else { // end
+      b.style.width = Math.max(12, drag.width0 + dx) + 'px';
+    }
+  });
+
+  window.addEventListener('mouseup', (e) => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    const b = d.bar;
+    // 시각 상태 원복(변경 성공 시 아래 render가 위치를 다시 계산)
+    b.style.transform = ''; b.style.opacity = ''; b.style.zIndex = ''; b.style.cursor = '';
+    b.style.left = d.left0 + 'px'; b.style.width = d.width0 + 'px';
+    if (!moved) return; // 움직임 없음 → 클릭(날짜 편집 팝업)
+    window.__suppressBarClick = true;
+    const dx = e.clientX - d.startX;
+
+    let ns = d.s, ne = d.en;
+    if (d.mode === 'move') {
+      const pe = prevItemEnd(d.bar);
+      const st = snapDays(xToDate(d.left0 + dx), [1,3], [pe ? addBizDays(pe,1) : null]);
+      const en2 = new Date(st); en2.setDate(en2.getDate() + d.durDays);
+      ns = isoOf(st); ne = isoOf(en2);
+    } else if (d.mode === 'start') {
+      const pe = prevItemEnd(d.bar);
+      let st = snapDays(xToDate(d.left0 + dx), [1,3], [pe ? addBizDays(pe,1) : null]);
+      const endD = new Date(d.en + 'T00:00:00');
+      if (st > endD) st = endD; // 시작이 끝을 넘지 않게
+      ns = isoOf(st); ne = d.en;
+    } else { // end
+      // 바 오른쪽 끝은 렌더 시 종료일을 꽉 채우려 UNIT(주말 제외 시 1영업일)만큼
+      // 더해 그려진다. 역매핑할 때 그 오프셋을 빼야 실제 종료일이 나온다.
+      const L = window.__schedLayout;
+      const off = (L && L.exclude) ? L.unit : 0;
+      let en2 = snapDays(xToDate(d.left0 + d.width0 + dx - off), [3,5], []);
+      const startD = new Date(d.s + 'T00:00:00');
+      if (en2 < startD) en2 = startD; // 끝이 시작보다 앞서지 않게
+      ns = d.s; ne = isoOf(en2);
+    }
+    if (ns === d.s && ne === d.en) return; // 변화 없음
+
+    if (setChartDates(d.name, d.s, d.en, ns, ne)) {
+      clearTimeout(typeof debounceTimer !== 'undefined' ? debounceTimer : 0);
+      render(currentMode);
+      pushMdBack(); // 변경된 MD를 에디터로 되돌려 보내 파일에 반영
+    }
+  });
+})();
 
 // ── 밖 클릭 시 닫기 ──
 document.addEventListener('mousedown', (e) => {

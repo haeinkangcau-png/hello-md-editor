@@ -869,6 +869,9 @@ const Editor = forwardRef(function Editor(
             editorRef2.current.commands.setContent(newContent)
             isSettingContent.current = false   // reset synchronously — never let it stick true
           }
+          // 에디터 뷰만 갱신하면 App 상태·자동저장이 안 걸려 파일에 반영되지 않는다.
+          // 스케줄 창의 편집(날짜/드래그)이 실제 파일까지 저장되도록 변경을 전파한다.
+          onContentChange(newContent, countWords(newContent))
         }
         if (e.data?.type === 'schedule-focus-item') {
           const itemName = e.data.itemName

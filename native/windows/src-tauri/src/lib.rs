@@ -471,7 +471,7 @@ fn get_open_file_path(app: AppHandle) -> Option<String> {
 
 // ── Windows ────────────────────────────────────────────────
 #[tauri::command]
-fn open_new_window(app: AppHandle) -> Result<(), String> {
+async fn open_new_window(app: AppHandle) -> Result<(), String> {
     {
         // A fresh editor window starts blank.
         *app.state::<AppState>().pending_open.lock().unwrap() = None;
@@ -481,20 +481,19 @@ fn open_new_window(app: AppHandle) -> Result<(), String> {
         .win_counter
         .fetch_add(1, Ordering::SeqCst);
     let label = format!("editor-{}", n);
-    let app2 = app.clone();
-    app.run_on_main_thread(move || {
-        let _ = WebviewWindowBuilder::new(&app2, label, WebviewUrl::App("index.html".into()))
-            .title("Hi MD Editor")
-            .inner_size(1280.0, 800.0)
-            .min_inner_size(900.0, 600.0)
-            .build();
-    })
-    .map_err(|e| e.to_string())?;
+    // async 커맨드(워커 스레드)에서 직접 build(). sync 커맨드는 메인 스레드에서
+    // 실행되어 build()가 WebView2 초기화를 기다리다 데드락한다(흰 화면).
+    WebviewWindowBuilder::new(&app, label, WebviewUrl::App("index.html".into()))
+        .title("Hi MD Editor")
+        .inner_size(1280.0, 800.0)
+        .min_inner_size(900.0, 600.0)
+        .build()
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn open_schedule_window(
+async fn open_schedule_window(
     app: AppHandle,
     content: Option<String>,
     file_name: Option<String>,
@@ -503,30 +502,32 @@ fn open_schedule_window(
     let f = file_name.filter(|s| !s.is_empty()).unwrap_or_else(|| "스케줄".into());
     *app.state::<AppState>().schedule_last.lock().unwrap() = (c.clone(), f.clone());
 
-    let app2 = app.clone();
-    app.run_on_main_thread(move || {
-        if let Some(win) = app2.get_webview_window("schedule") {
-            let _ = win.set_focus();
-            let (c, f) = app2.state::<AppState>().schedule_last.lock().unwrap().clone();
-            let _ = win.eval(&build_schedule_inject(&c, &f));
-            return;
-        }
-        let app3 = app2.clone();
-        let _ = WebviewWindowBuilder::new(&app2, "schedule", WebviewUrl::App("schedule.html".into()))
-            .title("스케줄 뷰어")
-            .inner_size(1400.0, 900.0)
-            .on_page_load(move |wv, _| {
-                let (c, f) = app3.state::<AppState>().schedule_last.lock().unwrap().clone();
-                let _ = wv.eval(&build_schedule_inject(&c, &f));
-            })
-            .build();
-    })
-    .map_err(|e| e.to_string())?;
+    // 이미 열려 있으면 focus + 내용 갱신.
+    if let Some(win) = app.get_webview_window("schedule") {
+        let _ = win.set_focus();
+        let _ = win.eval(&build_schedule_inject(&c, &f));
+        return Ok(());
+    }
+
+    // 새 창 생성. run_on_main_thread로 감싸면 안 된다 — build()는 WebView2
+    // 초기화를 위해 메인 이벤트 루프가 돌아야 하는데, run_on_main_thread가
+    // 메인 스레드를 붙잡으면 데드락하여 창이 흰 화면으로 멈춘다. 커맨드는
+    // 이미 별도 스레드에서 실행되므로 여기서 직접 build()를 호출한다.
+    let app3 = app.clone();
+    WebviewWindowBuilder::new(&app, "schedule", WebviewUrl::App("schedule.html".into()))
+        .title("스케줄 뷰어")
+        .inner_size(1400.0, 900.0)
+        .on_page_load(move |wv, _| {
+            let (c, f) = app3.state::<AppState>().schedule_last.lock().unwrap().clone();
+            let _ = wv.eval(&build_schedule_inject(&c, &f));
+        })
+        .build()
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn open_spec_window(
+async fn open_spec_window(
     app: AppHandle,
     content: Option<String>,
     file_name: Option<String>,
@@ -535,25 +536,23 @@ fn open_spec_window(
     let f = file_name.filter(|s| !s.is_empty()).unwrap_or_else(|| "spec".into());
     *app.state::<AppState>().spec_last.lock().unwrap() = (c.clone(), f.clone());
 
-    let app2 = app.clone();
-    app.run_on_main_thread(move || {
-        if let Some(win) = app2.get_webview_window("spec") {
-            let _ = win.set_focus();
-            let (c, f) = app2.state::<AppState>().spec_last.lock().unwrap().clone();
-            let _ = win.eval(&build_spec_inject(&c, &f));
-            return;
-        }
-        let app3 = app2.clone();
-        let _ = WebviewWindowBuilder::new(&app2, "spec", WebviewUrl::App("specviewer.html".into()))
-            .title("Spec Viewer")
-            .inner_size(1400.0, 900.0)
-            .on_page_load(move |wv, _| {
-                let (c, f) = app3.state::<AppState>().spec_last.lock().unwrap().clone();
-                let _ = wv.eval(&build_spec_inject(&c, &f));
-            })
-            .build();
-    })
-    .map_err(|e| e.to_string())?;
+    if let Some(win) = app.get_webview_window("spec") {
+        let _ = win.set_focus();
+        let _ = win.eval(&build_spec_inject(&c, &f));
+        return Ok(());
+    }
+
+    // async 커맨드(워커 스레드)에서 직접 build() — 메인 스레드 데드락 회피.
+    let app3 = app.clone();
+    WebviewWindowBuilder::new(&app, "spec", WebviewUrl::App("specviewer.html".into()))
+        .title("Spec Viewer")
+        .inner_size(1400.0, 900.0)
+        .on_page_load(move |wv, _| {
+            let (c, f) = app3.state::<AppState>().spec_last.lock().unwrap().clone();
+            let _ = wv.eval(&build_spec_inject(&c, &f));
+        })
+        .build()
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
