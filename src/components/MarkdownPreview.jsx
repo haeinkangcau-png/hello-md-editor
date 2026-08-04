@@ -43,6 +43,14 @@ export default function MarkdownPreview({ content, scrollRef, linkReg, sectionTi
     if (!a) return
     const raw = a.getAttribute('href') || a.href || ''
     if (!raw) return
+    // 앵커 링크(#id): 팝업 대신 문서 내 해당 제목으로 스크롤
+    if (raw.charAt(0) === '#') {
+      e.preventDefault()
+      const id = raw.slice(1)
+      const target = bodyRef.current?.querySelector(`[id="${CSS.escape(id)}"]`)
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
     e.preventDefault()
     setLinkPopup({ x: e.clientX, y: e.clientY, kind: isLocalPath(raw) ? 'path' : 'url', value: raw })
   }, [])

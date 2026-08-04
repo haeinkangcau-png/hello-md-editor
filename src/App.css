@@ -1381,6 +1381,7 @@ kbd {
 /* ── 날짜 하이라이트 (클릭 가능 표시) ────────────────────────── */
 .date-highlight {
   background: #f0eeeb;
+  color: var(--color-text);   /* 인라인 코드 등 위에 겹쳐도 날짜가 항상 진하게 읽히도록 */
   border-radius: 3px;
   padding: 0 2px;
   cursor: pointer;
