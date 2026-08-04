@@ -18,7 +18,7 @@ import { Markdown } from 'tiptap-markdown'
 import Toolbar from './Toolbar'
 import SelectionInfo from './SelectionInfo'
 import SearchBar from './SearchBar'
-import { normalizeHtmlTables } from '../utils/mdRenderer'
+import { normalizeHtmlTables, makeHeadingId } from '../utils/mdRenderer'
 import { SearchHighlight, searchPluginKey } from '../utils/searchExtension'
 import { DateHighlight } from '../utils/dateHighlight'
 import { saveImage, isWeb, readImageAsBlob, openScheduleWindow, openPath, openExternal, IMG_BASE } from '../api'
@@ -1301,38 +1301,41 @@ const Editor = forwardRef(function Editor(
         <div
           className="editor-scroll"
           onClick={(e) => {
-            // 링크/경로 열기·복사는 Ctrl(⌘)+클릭에서만 — 그냥 클릭은 커서 배치(편집)를 위해 비워둔다.
+            const a = e.target.closest('a')
+            // 앵커 링크(#제목)는 문서 내 이동 → Ctrl 없이 그냥 클릭으로 해당 제목으로 스크롤.
+            if (a && editor) {
+              const href = a.getAttribute('href') || a.href || ''
+              if (href.charAt(0) === '#') {
+                e.preventDefault()
+                setCalState(null)
+                let want = href.slice(1)
+                try { want = decodeURIComponent(want) } catch { /* keep raw */ }
+                const wantId = want.startsWith('hd-') ? want : makeHeadingId(want)
+                let pos = null
+                editor.state.doc.descendants((node, p) => {
+                  if (pos != null) return false
+                  if (node.type.name === 'heading' && makeHeadingId(node.textContent) === wantId) pos = p
+                })
+                if (pos != null) {
+                  const dom = editor.view.nodeDOM(pos)
+                  const el = dom instanceof Element ? dom : dom?.parentElement
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
+                return
+              }
+            }
+            // 외부/경로 링크 열기·복사는 Ctrl(⌘)+클릭에서만 — 그냥 클릭은 커서 배치(편집).
             if (e.ctrlKey || e.metaKey) {
-              // 1) 링크(앵커) → URL/경로 액션 팝업
-              const a = e.target.closest('a')
               if (a) {
                 const raw = a.getAttribute('href') || a.href || ''
                 if (raw) {
                   e.preventDefault()
                   setCalState(null)
-                  // 앵커 링크(#제목) → 팝업 대신 문서 내 해당 제목으로 스크롤
-                  if (raw.charAt(0) === '#' && editor) {
-                    let want = raw.slice(1)
-                    try { want = decodeURIComponent(want) } catch { /* keep raw */ }
-                    const norm = (s) => s.trim().toLowerCase().replace(/\s+/g, ' ')
-                    const target = norm(want)
-                    let pos = null
-                    editor.state.doc.descendants((node, p) => {
-                      if (pos != null) return false
-                      if (node.type.name === 'heading' && norm(node.textContent) === target) pos = p
-                    })
-                    if (pos != null) {
-                      const dom = editor.view.nodeDOM(pos)
-                      const el = dom instanceof Element ? dom : dom?.parentElement
-                      el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                    }
-                    return
-                  }
                   setLinkPopup({ x: e.clientX, y: e.clientY, kind: isLocalPath(raw) ? 'path' : 'url', value: raw })
                   return
                 }
               }
-              // 2) 평문 폴더/파일 경로
+              // 평문 폴더/파일 경로
               const cx = e.clientX, cy = e.clientY
               requestAnimationFrame(() => {
                 if (!editor) return
