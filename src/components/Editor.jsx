@@ -1310,6 +1310,24 @@ const Editor = forwardRef(function Editor(
                 if (raw) {
                   e.preventDefault()
                   setCalState(null)
+                  // 앵커 링크(#제목) → 팝업 대신 문서 내 해당 제목으로 스크롤
+                  if (raw.charAt(0) === '#' && editor) {
+                    let want = raw.slice(1)
+                    try { want = decodeURIComponent(want) } catch { /* keep raw */ }
+                    const norm = (s) => s.trim().toLowerCase().replace(/\s+/g, ' ')
+                    const target = norm(want)
+                    let pos = null
+                    editor.state.doc.descendants((node, p) => {
+                      if (pos != null) return false
+                      if (node.type.name === 'heading' && norm(node.textContent) === target) pos = p
+                    })
+                    if (pos != null) {
+                      const dom = editor.view.nodeDOM(pos)
+                      const el = dom instanceof Element ? dom : dom?.parentElement
+                      el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }
+                    return
+                  }
                   setLinkPopup({ x: e.clientX, y: e.clientY, kind: isLocalPath(raw) ? 'path' : 'url', value: raw })
                   return
                 }
