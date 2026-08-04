@@ -94,8 +94,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR
   overflow-y: auto; padding: 20px 0 20px 0; background: #f6f8fa; display: flex; flex-direction: column; }
 #toc-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.08em; color: #7a8799; padding: 0 14px 10px;
-  border-bottom: 1px solid #d1d9e0; margin-bottom: 8px; }
-.toc-item { display: block; padding: 3px 14px 3px 14px; font-size: 12.5px; color: #4a5568;
+  border-bottom: 1px solid #d1d9e0; margin-bottom: 8px; flex-shrink: 0; }
+/* flex-shrink:0 — #toc가 flex column이라, 항목이 많아 100vh를 넘으면 flex가 각
+   항목을 축소해 겹치는 문제 방지. 축소 대신 컨테이너(overflow-y:auto)가 스크롤. */
+.toc-item { display: block; flex-shrink: 0; padding: 3px 14px 3px 14px; font-size: 12.5px; color: #4a5568;
   text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.55; }
 .toc-item:hover { background: #edf0f3; color: #0969da; }
 .toc-item.active { background: #dbeafe; color: #0969da; font-weight: 500; }
