@@ -351,15 +351,25 @@ const Editor = forwardRef(function Editor(
   }, [])
 
   // ── Image path conversion helpers ──────────────────────────
-  // Markdown에 저장된 상대 경로 → 에디터 표시용 local-image:// 절대 경로
+  // Markdown에 저장된 상대 경로 → 에디터 표시용 local-image:// 절대 경로.
+  // 경로에 공백/특수문자가 있으면 tiptap-markdown이 ![](url with spaces) 파싱에
+  // 실패해 텍스트로 나오므로 encodeURI로 인코딩한다(공백→%20). 프로토콜 핸들러가
+  // 디코드하므로 파일은 정상 해석된다. 공백 없는 경로는 결과가 동일(회귀 없음).
+  const safeDec = (u) => { try { return decodeURI(u) } catch { return u } }
   const toAbsImagePaths = useCallback((md) => {
     const fp = currentFilePathRef.current
     if (!fp || !md) return md
     const dir = fp.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
-    return md.replace(
-      /!\[([^\]]*)\]\(\.\//g,
-      (match, alt) => `![${alt}](${IMG_BASE}${dir}/`
-    )
+    return md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, url) => {
+      if (url.startsWith('./')) {
+        return `![${alt}](${IMG_BASE}${encodeURI(dir + url.slice(1))})`
+      }
+      if (url.startsWith(IMG_BASE)) {
+        // 과거에 인코딩 없이 저장돼 깨진 절대 URL도 인코딩해 복구
+        return `![${alt}](${IMG_BASE}${encodeURI(safeDec(url.slice(IMG_BASE.length)))})`
+      }
+      return m
+    })
   }, [])
 
   // 웹 모드: ./x.assets/y.png → blob URL (비동기)
@@ -399,13 +409,15 @@ const Editor = forwardRef(function Editor(
     const fp = currentFilePathRef.current
     if (!fp) return md
     const dir = fp.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
-    const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const escaped = reEsc(dir)
-    const escBase = reEsc(IMG_BASE)
-    return md.replace(
-      new RegExp(`!\\[([^\\]]*)\\]\\(${escBase}${escaped}/`, 'g'),
-      (match, alt) => `![${alt}](./`
-    )
+    // 표시용 abs URL은 encodeURI(dir+rel) 형태 → 인코딩된 dir 접두사를 떼고 rel은
+    // 원래(raw) 상대경로로 디코드해 저장한다(파일엔 사람이 읽는 상대경로 유지).
+    const prefix = `${IMG_BASE}${encodeURI(dir)}/`
+    return md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, url) => {
+      if (url.startsWith(prefix)) {
+        return `![${alt}](./${safeDec(url.slice(prefix.length))})`
+      }
+      return m
+    })
   }, [])
 
   const handleImagePaste = useCallback(async (files) => {
@@ -448,7 +460,8 @@ const Editor = forwardRef(function Editor(
               displaySrc = relPath
             }
           } else {
-            displaySrc = `${IMG_BASE}${assetsDir}/${imgName}`
+            // 인코딩(공백/특수문자) — 저장 시 toRelImagePaths가 상대경로로 되돌림
+            displaySrc = `${IMG_BASE}${encodeURI(assetsDir + '/' + imgName)}`
           }
           editorRef2.current.chain().focus().setImage({ src: displaySrc, alt: 'image' }).run()
         } else {
